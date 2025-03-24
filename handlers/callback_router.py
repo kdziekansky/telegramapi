@@ -63,7 +63,8 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Payment and subscription callbacks
     elif (query.data.startswith("payment_") or query.data.startswith("buy_package_") 
-          or query.data == "subscription_command" or query.data.startswith("cancel_subscription_")):
+        or query.data == "subscription_command" or query.data == "transactions_command" or 
+        query.data.startswith("cancel_subscription_")):
         return await route_payment_callback(update, context)
     
     # Onboarding callbacks
