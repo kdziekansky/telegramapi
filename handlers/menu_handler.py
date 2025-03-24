@@ -8,6 +8,7 @@ from utils.translations import get_text
 from utils.user_utils import get_user_language, mark_chat_initialized
 from database.supabase_client import update_user_language, create_new_conversation
 from utils.menu import update_menu, store_menu_state, get_navigation_path
+from database.credits_client import get_user_credits
 
 logger = logging.getLogger(__name__)
 
@@ -254,25 +255,32 @@ async def handle_back_to_main(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     try:
-        # Usuń poprzednią wiadomość
-        await query.message.delete()
+        # Zamiast usuwać wiadomość, sprawdzamy czy to wiadomość z obrazkiem
+        if hasattr(query.message, 'photo') and query.message.photo:
+            # Dla wiadomości z obrazkiem - aktualizujemy podpis i przyciski
+            await query.message.edit_caption(
+                caption=welcome_text,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # Dla zwykłych wiadomości - wysyłamy nowe zdjęcie, ale nie usuwamy starej wiadomości
+            message = await context.bot.send_photo(
+                chat_id=query.message.chat_id,
+                photo=banner_url,
+                caption=welcome_text,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.MARKDOWN
+            )
+            
+            # Zapisz stan menu
+            store_menu_state(context, user_id, 'main', message.message_id)
         
-        # Wyślij nową wiadomość ze zdjęciem
-        message = await context.bot.send_photo(
-            chat_id=query.message.chat_id,
-            photo=banner_url,
-            caption=welcome_text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        
-        # Zapisz stan menu
-        store_menu_state(context, user_id, 'main', message.message_id)
         return True
     except Exception as e:
         logger.error(f"Error returning to main menu: {e}")
         
-        # Alternatywna metoda - próba standardowej aktualizacji
+        # Alternatywna metoda - próba standardowej aktualizacji tekstu
         try:
             result = await update_menu(query, welcome_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
             store_menu_state(context, user_id, 'main')
@@ -280,7 +288,7 @@ async def handle_back_to_main(update, context):
         except Exception as e2:
             logger.error(f"Second error when returning to main menu: {e2}")
             
-            # Ostateczna próba - wysłanie nowej wiadomości
+            # Ostateczna próba - wysłanie nowej wiadomości tekstowej
             try:
                 message = await context.bot.send_message(
                     chat_id=query.message.chat_id,
@@ -326,8 +334,10 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
-    message_text = f"*{get_navigation_path('settings', language)} > {get_text('settings_choose_language', language)}*\n\n"
-    message_text += get_text("settings_choose_language", language, default="Wybierz język:")
+    language_selection_text = get_text("settings_choose_language", language, default="Wybierz język interfejsu:")
+    
+    message_text = f"*{get_navigation_path('settings', language)} > {get_text('language_selection_title', language, default='Wybór języka')}*\n\n"
+    message_text += language_selection_text
     
     buttons = []
     for lang_code, lang_name in AVAILABLE_LANGUAGES.items():

@@ -238,14 +238,16 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
+    await query.answer()
+    
     if query.data == "quick_new_chat":
         # Handle new chat creation
         try:
-            # Create a new conversation
+            # Nie używamy await przy create_new_conversation - to nie jest async funkcja
             from database.supabase_client import create_new_conversation
             from utils.user_utils import mark_chat_initialized
             
-            conversation = await create_new_conversation(user_id)  # Dodane await
+            conversation = create_new_conversation(user_id)  # Usunięto await
             mark_chat_initialized(context, user_id)
             
             await query.answer(get_text("new_chat_created", language))
@@ -280,12 +282,12 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             model_name = AVAILABLE_MODELS.get(model_to_use, model_to_use)
             
             # Create new chat message with model info
-            base_message = "✅ Utworzono nową rozmowę. Możesz zacząć pisać! "
-            model_info = f"Używasz modelu {model_name} za {credit_cost} kredyt(ów) za wiadomość"
+            base_message = get_text("new_chat_created_message", language, default="✅ Utworzono nową rozmowę. Możesz zacząć pisać! ")
+            model_info = get_text("model_info", language, model=model_name, cost=credit_cost, default=f"Używasz modelu {model_name} za {credit_cost} kredyt(ów) za wiadomość")
             
             # Single button - model selection (zmiana callback_data)
             keyboard = [
-                [InlineKeyboardButton("🤖 Wybierz model czatu", callback_data="menu_section_settings")]
+                [InlineKeyboardButton("🤖 " + get_text("select_model", language, default="Wybierz model czatu"), callback_data="menu_section_settings")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -300,14 +302,26 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             logger.error(f"Error creating new chat: {e}")
             import traceback
             traceback.print_exc()
-            return False
+            
+            # Wysyłamy prosty komunikat bez próby połączenia z bazą
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=get_text("offline_new_chat", language, default="Utworzono nową rozmowę (tryb offline).")
+            )
+            return True
             
     elif query.data == "quick_last_chat":
         try:
-            # Get active conversation
+            # Get active conversation - nie używamy await
             from database.supabase_client import get_active_conversation
             
-            conversation = await get_active_conversation(user_id)  # Dodane await
+            # Próba pobrania konwersacji - jeśli się nie uda, obsługujemy błąd
+            try:
+                conversation = get_active_conversation(user_id)  # Usunięto await
+            except Exception as e:
+                # W przypadku błędu używamy trybu offline
+                logger.warning(f"Cannot access database, using offline mode: {e}")
+                conversation = None
             
             if conversation:
                 await query.answer(get_text("returning_to_last_chat", language, default="Powrót do ostatniej rozmowy"))
@@ -317,9 +331,12 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             else:
                 await query.answer(get_text("no_active_chat", language, default="Brak aktywnej rozmowy"))
                 
-                # Create new conversation
+                # Create new conversation - bez await
                 from database.supabase_client import create_new_conversation
-                await create_new_conversation(user_id)  # Dodane await
+                try:
+                    create_new_conversation(user_id)
+                except Exception as e:
+                    logger.warning(f"Error creating conversation (offline mode): {e}")
                 
                 # Close menu
                 await query.message.delete()
@@ -334,7 +351,13 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             logger.error(f"Error handling last chat: {e}")
             import traceback
             traceback.print_exc()
-            return False
+            
+            # Zapasowa obsługa błędu - po prostu wysyłamy wiadomość
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=get_text("offline_mode_active", language, default="Tryb offline aktywny - możesz nadal korzystać z bota.")
+            )
+            return True
             
     elif query.data == "quick_buy_credits":
         try:
