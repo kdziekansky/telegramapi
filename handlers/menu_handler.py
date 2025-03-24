@@ -125,6 +125,10 @@ async def handle_credits_section(update, context, navigation_path=""):
 
 async def handle_history_section(update, context, navigation_path=""):
     """History section handler"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    language = get_user_language(context, user_id)
+    
     buttons = [
         [InlineKeyboardButton(get_text("new_chat", language), callback_data="history_new")],
         [InlineKeyboardButton(get_text("view_history", language), callback_data="history_view")],
@@ -132,7 +136,7 @@ async def handle_history_section(update, context, navigation_path=""):
     ]
     
     return await _create_section_menu(
-        update.callback_query, context, 'history', 
+        query, context, 'history', 
         "history_options", buttons
     )
 
@@ -350,6 +354,27 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
     store_menu_state(context, user_id, 'language_selection')
     return result
 
+async def handle_help_section(update, context):
+    """Help section handler"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    language = get_user_language(context, user_id)
+    
+    # Pobierz tekst pomocy z tłumaczeń
+    help_text = get_text("help_text", language)
+    
+    # Przyciski dla sekcji pomocy
+    buttons = [
+        [InlineKeyboardButton(get_text("commands_list", language, default="Lista komend"), callback_data="help_commands")],
+        [InlineKeyboardButton(get_text("credits_info", language, default="Informacje o kredytach"), callback_data="help_credits")],
+        [InlineKeyboardButton(get_text("contact_support", language, default="Kontakt"), callback_data="help_contact")]
+    ]
+    
+    return await _create_section_menu(
+        query, context, 'help', 
+        "help_options", buttons
+    )
+
 async def handle_history_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """History-related callbacks handler"""
     query = update.callback_query
@@ -357,47 +382,90 @@ async def handle_history_callbacks(update: Update, context: ContextTypes.DEFAULT
     language = get_user_language(context, user_id)
     
     if query.data == "history_view":
-        from database.supabase_client import get_active_conversation, get_conversation_history
-        conversation = get_active_conversation(user_id)
-        
-        if not conversation:
-            message_text = get_text("history_no_conversation", language, default="Brak aktywnej konwersacji.")
-            await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
-            return True
-            
-        history = get_conversation_history(conversation['id'])
-        
-        if not history:
-            message_text = get_text("history_empty", language, default="Historia jest pusta.")
-            await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
-            return True
-        
-        message_text = f"*{get_text('history_title', language, default='Historia konwersacji')}*\n\n"
-        
-        for i, msg in enumerate(history[-10:]):
-            sender = get_text("history_user", language) if msg.get('is_from_user') else get_text("history_bot", language)
-            content = msg.get('content', '')
-            if content and len(content) > 100:
-                content = content[:97] + "..."
-            content = content.replace("*", "").replace("_", "").replace("`", "").replace("[", "").replace("]", "")
-            message_text += f"{i+1}. *{sender}*: {content}\n\n"
-        
         try:
-            await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]), parse_mode=ParseMode.MARKDOWN)
-        except Exception:
-            await update_menu(query, message_text.replace("*", ""), InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
-        
+            # Próba bezpośredniego dostępu do bazy danych
+            from database.supabase_client import supabase
+            
+            # Najpierw spróbuj znaleźć aktywną konwersację
+            try:
+                response = supabase.table('conversations').select('*').eq('user_id', user_id).order('last_message_at', desc=True).limit(1).execute()
+                conversations = response.data
+                
+                if not conversations:
+                    message_text = get_text("history_no_conversation", language, default="Brak aktywnej konwersacji.")
+                    await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+                    return True
+                    
+                conversation = conversations[0]
+                conversation_id = conversation['id']
+                
+                # Pobierz wiadomości dla tej konwersacji
+                messages_response = supabase.table('messages').select('*').eq('conversation_id', conversation_id).order('created_at').execute()
+                messages = messages_response.data
+                
+                if not messages:
+                    message_text = get_text("history_empty", language, default="Historia jest pusta.")
+                    await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+                    return True
+                
+                # Teraz wyświetl historię
+                message_text = f"*{get_text('history_title', language, default='Historia konwersacji')}*\n\n"
+                
+                # Pokazujemy tylko ostatnie 10 wiadomości
+                last_messages = messages[-10:] if len(messages) > 10 else messages
+                
+                for i, msg in enumerate(last_messages):
+                    sender = get_text("history_user", language) if msg.get('is_from_user') else get_text("history_bot", language)
+                    content = msg.get('content', '')
+                    if content and len(content) > 100:
+                        content = content[:97] + "..."
+                    content = content.replace("*", "").replace("_", "").replace("`", "").replace("[", "").replace("]", "")
+                    message_text += f"{i+1}. *{sender}*: {content}\n\n"
+                
+                try:
+                    await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]), parse_mode=ParseMode.MARKDOWN)
+                except Exception:
+                    await update_menu(query, message_text.replace("*", ""), InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            except Exception as e:
+                logger.error(f"Error accessing conversation data: {e}")
+                await update_menu(query, f"Błąd dostępu do danych: {str(e)}", InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+                
+        except Exception as e:
+            logger.error(f"Error in history_view: {e}")
+            await update_menu(query, f"Wystąpił błąd: {str(e)}", InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            
         return True
     
     elif query.data == "history_new":
         try:
-            conversation = create_new_conversation(user_id)
-            mark_chat_initialized(context, user_id)
-            message_text = "✅ Utworzono nową konwersację."
-            await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            # Bezpośrednie tworzenie konwersacji
+            from database.supabase_client import supabase
+            from datetime import datetime
+            import pytz
+            
+            now = datetime.now(pytz.UTC).isoformat()
+            
+            # Utwórz nową konwersację
+            try:
+                response = supabase.table('conversations').insert({
+                    'user_id': user_id,
+                    'created_at': now,
+                    'last_message_at': now
+                }).execute()
+                
+                # Oznacz czat jako zainicjowany
+                mark_chat_initialized(context, user_id)
+                
+                message_text = "✅ Utworzono nową konwersację."
+                await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            except Exception as e:
+                logger.error(f"Error creating conversation: {e}")
+                await update_menu(query, f"Błąd tworzenia konwersacji: {str(e)}", InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            
         except Exception as e:
             logger.error(f"Error in history_new: {e}")
             await update_menu(query, "Wystąpił błąd podczas tworzenia nowej konwersacji.", InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            
         return True
     
     elif query.data == "history_delete":
@@ -411,12 +479,46 @@ async def handle_history_callbacks(update: Update, context: ContextTypes.DEFAULT
     
     elif query.data == "history_confirm_delete":
         try:
-            conversation = create_new_conversation(user_id)
-            message_text = "✅ Historia została pomyślnie usunięta."
-            await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            # Najpierw utwórz nową konwersację, a następnie usuń stare
+            from database.supabase_client import supabase
+            from datetime import datetime
+            import pytz
+            
+            now = datetime.now(pytz.UTC).isoformat()
+            
+            # Utwórz nową konwersację
+            try:
+                supabase.table('conversations').insert({
+                    'user_id': user_id,
+                    'created_at': now,
+                    'last_message_at': now
+                }).execute()
+                
+                # Pobierz stare konwersacje
+                response = supabase.table('conversations').select('id').eq('user_id', user_id).order('last_message_at', desc=True).limit(100).execute()
+                
+                if response.data and len(response.data) > 1:
+                    # Pobierz wszystkie ID konwersacji poza najnowszą
+                    conversation_ids = [conv['id'] for conv in response.data[1:]]
+                    
+                    # Usuń wiadomości ze starych konwersacji
+                    for conv_id in conversation_ids:
+                        supabase.table('messages').delete().eq('conversation_id', conv_id).execute()
+                    
+                    # Usuń stare konwersacje
+                    for conv_id in conversation_ids:
+                        supabase.table('conversations').delete().eq('id', conv_id).execute()
+                
+                message_text = "✅ Historia została pomyślnie usunięta."
+                await update_menu(query, message_text, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            except Exception as e:
+                logger.error(f"Error deleting history: {e}")
+                await update_menu(query, f"Błąd usuwania historii: {str(e)}", InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            
         except Exception as e:
             logger.error(f"Error in history_confirm_delete: {e}")
             await update_menu(query, "Wystąpił błąd podczas usuwania historii.", InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_history")]]))
+            
         return True
     
     return False

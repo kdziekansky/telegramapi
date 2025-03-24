@@ -34,7 +34,7 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     # Menu section callbacks
-    if query.data.startswith("menu_section_"):
+    if query.data.startswith("menu_section_") or query.data == "menu_image_generate" or query.data == "menu_help":
         return await route_menu_section_callback(update, context)
     
     # Menu back callbacks
@@ -94,6 +94,10 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Settings callbacks
     elif query.data.startswith("settings_"):
         return await route_settings_callback(update, context)
+        
+    # Help section callbacks
+    elif query.data.startswith("help_"):
+        return await route_help_callback(update, context)
     
     # Unknown callback
     logger.warning(f"Unhandled callback: {query.data}")
@@ -108,6 +112,13 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error displaying message about unhandled callback: {e}")
         return False
+
+
+# Dodaj funkcję do routowania callbacków pomocy
+async def route_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Routes help-related callbacks"""
+    from handlers.menu_handler import handle_help_callbacks
+    return await handle_help_callbacks(update, context)
 
 
 # Routing implementations
@@ -483,6 +494,97 @@ async def route_history_callback(update: Update, context: ContextTypes.DEFAULT_T
     except Exception as e:
         logger.error(f"Error in history callback handling: {e}")
         return False
+
+# Dodaj do handlers/menu_handler.py
+async def handle_help_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Obsługuje callbacki związane z sekcją pomocy"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    language = get_user_language(context, user_id)
+    from config import BOT_NAME
+    from database.credits_client import get_user_credits
+    
+    if query.data == "help_commands":
+        # Lista komend
+        commands_text = """
+*Lista dostępnych komend:*
+
+• /start - Rozpocznij korzystanie z bota
+• /credits - Sprawdź stan kredytów
+• /buy - Kup pakiet kredytów
+• /status - Sprawdź status konta
+• /newchat - Rozpocznij nową konwersację
+• /mode - Wybierz tryb czatu
+• /models - Wybierz model AI
+• /image [opis] - Wygeneruj obraz
+• /export - Eksportuj konwersację do PDF
+• /theme - Zarządzaj tematami konwersacji
+• /remind [czas] [treść] - Ustaw przypomnienie
+• /code [kod] - Aktywuj kod promocyjny
+• /creditstats - Analiza wykorzystania kredytów
+• /restart - Zrestartuj informacje o bocie
+• /menu - Pokaż menu główne
+        """
+        
+        keyboard = [[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_help")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update_menu(query, commands_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+        return True
+        
+    elif query.data == "help_credits":
+        # Informacje o kredytach
+        credits = get_user_credits(user_id)
+        
+        credits_text = f"""
+*Informacje o systemie kredytów:*
+
+• Aktualna liczba kredytów: *{credits}*
+• Kredyty są używane do wszystkich operacji w bocie
+
+*Koszty operacji:*
+• Wiadomość standardowa (GPT-3.5): 1 kredyt
+• Wiadomość premium (GPT-4o): 3 kredyty
+• Wiadomość ekspercka (GPT-4): 5 kredytów
+• Generowanie obrazu: 10-15 kredytów
+• Analiza dokumentu: 5 kredytów
+• Analiza zdjęcia: 8 kredytów
+
+Użyj /buy aby dokupić kredyty lub /creditstats aby sprawdzić statystyki wykorzystania.
+        """
+        
+        keyboard = [
+            [InlineKeyboardButton("💳 Kup kredyty", callback_data="menu_credits_buy")],
+            [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_help")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update_menu(query, credits_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+        return True
+        
+    elif query.data == "help_contact":
+        # Informacje kontaktowe
+        contact_text = f"""
+*Kontakt i wsparcie:*
+
+• Email: support@{BOT_NAME.lower()}.ai
+• Telegram: @{BOT_NAME.lower()}_support
+• Czas odpowiedzi: do 24h w dni robocze
+
+*Zgłaszanie błędów:*
+Jeśli napotkasz problem, opisz dokładnie co się stało i w jakich okolicznościach.
+
+*Sugestie:*
+Chętnie przyjmujemy pomysły na nowe funkcje!
+        """
+        
+        keyboard = [[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_help")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update_menu(query, contact_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+        return True
+        
+    return False
 
 async def route_settings_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Routes settings-related callbacks"""
