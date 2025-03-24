@@ -3,7 +3,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
-from config import CHAT_MODES, AVAILABLE_LANGUAGES, AVAILABLE_MODELS, BOT_NAME
+from config import CHAT_MODES, AVAILABLE_LANGUAGES, AVAILABLE_MODELS, BOT_NAME, CREDIT_COSTS
 from utils.translations import get_text
 from utils.user_utils import get_user_language, mark_chat_initialized
 from database.supabase_client import update_user_language, create_new_conversation
@@ -137,48 +137,60 @@ async def handle_history_section(update, context, navigation_path=""):
 
 async def handle_settings_section(update, context, navigation_path=""):
     """Settings section handler"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    language = get_user_language(context, user_id)
+    
+    # Link do zdjęcia bannera
+    banner_url = "https://i.imgur.com/YPubLDE.png?v-1123"
+    
+    nav_path = get_navigation_path('settings', language)
+    message_text = f"*{nav_path}*\n\n{get_text('settings_options', language)}"
+    
     buttons = [
         [InlineKeyboardButton(get_text("settings_model", language), callback_data="settings_model")],
         [InlineKeyboardButton(get_text("settings_language", language), callback_data="settings_language")],
         [InlineKeyboardButton(get_text("settings_name", language), callback_data="settings_name")]
     ]
     
-    return await _create_section_menu(
-        update.callback_query, context, 'settings', 
-        "settings_options", buttons
-    )
-
-async def handle_help_section(update, context, navigation_path=""):
-    """Help section handler"""
-    query = update.callback_query
-    user_id = query.from_user.id
-    language = get_user_language(context, user_id)
+    # Dodaj przyciski szybkiego dostępu
+    buttons.append([
+        InlineKeyboardButton("🆕 " + get_text("new_chat", language, default="Nowa rozmowa"), callback_data="quick_new_chat"),
+        InlineKeyboardButton("💬 " + get_text("last_chat", language, default="Ostatnia rozmowa"), callback_data="quick_last_chat"),
+        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language, default="Kup kredyty"), callback_data="quick_buy_credits")
+    ])
     
-    message_text = f"*{navigation_path or get_navigation_path('help', language)}*\n\n"
-    message_text += get_text("help_text", language)
-    
-    # Add command shortcuts
-    message_text += "\n\n● *Skróty Komend* ●\n"
-    commands = [
-        "/start - Rozpocznij bota", "/menu - Otwórz menu główne", 
-        "/credits - Sprawdź kredyty", "/buy - Kup kredyty",
-        "/mode - Wybierz tryb czatu", "/image - Generuj obraz",
-        "/help - Wyświetl pomoc", "/status - Sprawdź status"
-    ]
-    message_text += "\n".join([f"▪️ {cmd}" for cmd in commands])
-    
-    buttons = [[
-        InlineKeyboardButton("🆕 " + get_text("new_chat", language), callback_data="quick_new_chat"),
-        InlineKeyboardButton("💬 " + get_text("last_chat", language), callback_data="quick_last_chat"),
-        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language), callback_data="quick_buy_credits")
-    ], [
-        InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")
-    ]]
+    # Dodaj przycisk powrotu
+    buttons.append([InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")])
     
     reply_markup = InlineKeyboardMarkup(buttons)
-    result = await update_menu(query, message_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
-    store_menu_state(context, user_id, 'help')
-    return result
+    
+    try:
+        # Usuń poprzednią wiadomość
+        await query.message.delete()
+        
+        # Wyślij nową wiadomość ze zdjęciem
+        message = await context.bot.send_photo(
+            chat_id=query.message.chat_id,
+            photo=banner_url,
+            caption=message_text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        
+        # Zapisz stan menu
+        store_menu_state(context, user_id, 'settings', message.message_id)
+        return True
+    except Exception as e:
+        logger.error(f"Błąd przy wyświetlaniu menu ustawień: {e}")
+        # Alternatywna metoda, jeśli wysłanie zdjęcia się nie powiedzie
+        try:
+            result = await update_menu(query, message_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+            store_menu_state(context, user_id, 'settings')
+            return result
+        except Exception as e2:
+            logger.error(f"Drugi błąd przy wyświetlaniu menu ustawień: {e2}")
+            return False
 
 async def handle_image_section(update, context, navigation_path=""):
     """Image generation section handler"""
@@ -219,6 +231,9 @@ async def handle_back_to_main(update, context):
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
+    # Link do zdjęcia bannera
+    banner_url = "https://i.imgur.com/YPubLDE.png?v-1123"
+    
     welcome_text = get_text("welcome_message", language, bot_name=BOT_NAME)
     
     keyboard = [
@@ -239,20 +254,45 @@ async def handle_back_to_main(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     try:
-        result = await update_menu(query, welcome_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
-        store_menu_state(context, user_id, 'main')
-        return result
-    except Exception as e:
-        logger.error(f"Error returning to main menu: {e}")
+        # Usuń poprzednią wiadomość
         await query.message.delete()
-        message = await context.bot.send_message(
+        
+        # Wyślij nową wiadomość ze zdjęciem
+        message = await context.bot.send_photo(
             chat_id=query.message.chat_id,
-            text=welcome_text,
+            photo=banner_url,
+            caption=welcome_text,
             reply_markup=reply_markup,
             parse_mode=ParseMode.MARKDOWN
         )
+        
+        # Zapisz stan menu
         store_menu_state(context, user_id, 'main', message.message_id)
         return True
+    except Exception as e:
+        logger.error(f"Error returning to main menu: {e}")
+        
+        # Alternatywna metoda - próba standardowej aktualizacji
+        try:
+            result = await update_menu(query, welcome_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+            store_menu_state(context, user_id, 'main')
+            return result
+        except Exception as e2:
+            logger.error(f"Second error when returning to main menu: {e2}")
+            
+            # Ostateczna próba - wysłanie nowej wiadomości
+            try:
+                message = await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=welcome_text,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                store_menu_state(context, user_id, 'main', message.message_id)
+                return True
+            except Exception as e3:
+                logger.error(f"Third error when returning to main menu: {e3}")
+                return False
 
 async def handle_model_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Model selection handler"""

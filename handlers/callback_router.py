@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 from utils.user_utils import get_user_language
 from utils.menu import update_menu, store_menu_state
 from utils.translations import get_text
+from config import CHAT_MODES, AVAILABLE_MODELS, CREDIT_COSTS, DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +158,6 @@ async def route_model_selection_callback(update: Update, context: ContextTypes.D
         language = get_user_language(context, user_id)
         model_id = query.data[6:]  # Remove 'model_' prefix
         
-        from config import AVAILABLE_MODELS, CREDIT_COSTS
-        
         # Save model in context
         if 'user_data' not in context.chat_data:
             context.chat_data['user_data'] = {}
@@ -236,6 +235,7 @@ async def route_mode_selection_callback(update: Update, context: ContextTypes.DE
 async def route_quick_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Routes quick action callbacks"""
     query = update.callback_query
+    user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
     if query.data == "quick_new_chat":
@@ -245,8 +245,8 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             from database.supabase_client import create_new_conversation
             from utils.user_utils import mark_chat_initialized
             
-            conversation = create_new_conversation(query.from_user.id)
-            mark_chat_initialized(context, query.from_user.id)
+            conversation = await create_new_conversation(user_id)  # Dodane await
+            mark_chat_initialized(context, user_id)
             
             await query.answer(get_text("new_chat_created", language))
             
@@ -255,7 +255,6 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             
             # Determine current mode and cost
             from config import DEFAULT_MODEL, AVAILABLE_MODELS, CHAT_MODES, CREDIT_COSTS
-            user_id = query.from_user.id
             
             # Default values
             current_mode = "no_mode"
@@ -284,12 +283,12 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             base_message = "✅ Utworzono nową rozmowę. Możesz zacząć pisać! "
             model_info = f"Używasz modelu {model_name} za {credit_cost} kredyt(ów) za wiadomość"
             
-            # Single button - model selection
+            # Single button - model selection (zmiana callback_data)
             keyboard = [
-                [InlineKeyboardButton("🤖 Wybierz model czatu", callback_data="settings_model")]
+                [InlineKeyboardButton("🤖 Wybierz model czatu", callback_data="menu_section_settings")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            
+
             # Send confirmation message
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
@@ -308,7 +307,7 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             # Get active conversation
             from database.supabase_client import get_active_conversation
             
-            conversation = get_active_conversation(query.from_user.id)
+            conversation = await get_active_conversation(user_id)  # Dodane await
             
             if conversation:
                 await query.answer(get_text("returning_to_last_chat", language, default="Powrót do ostatniej rozmowy"))
@@ -320,7 +319,7 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
                 
                 # Create new conversation
                 from database.supabase_client import create_new_conversation
-                create_new_conversation(query.from_user.id)
+                await create_new_conversation(user_id)  # Dodane await
                 
                 # Close menu
                 await query.message.delete()
