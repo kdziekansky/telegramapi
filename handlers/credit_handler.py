@@ -28,9 +28,8 @@ async def credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     language = get_user_language(context, user_id)
     credits = get_user_credits(user_id)
-    
-    message = f"*Stan kredytów*\n\n"
-    message += f"Dostępne kredyty: *{credits}*\n\n"
+    message = f"*{get_text('credit_status_title', language, default='Stan kredytów')}*\n\n"
+    message += f"{get_text('available_credits', language, default='Dostępne kredyty')}: *{credits}*\n\n"
     
     try:
         from database.credits_client import get_user_credit_stats

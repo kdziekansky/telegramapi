@@ -7,9 +7,27 @@ api_service = APIService()
 repository_service = RepositoryService(api_service.supabase)
 
 # Funkcje dla kompatybilności wstecznej
-async def get_user_credits(user_id):
-    """Funkcja dla kompatybilności wstecznej"""
-    return await repository_service.credit_repository.get_user_credits(user_id)
+def get_user_credits(user_id):
+    """Funkcja dla kompatybilności wstecznej - bez async/await"""
+    try:
+        # Bezpośrednie zapytanie do Supabase
+        response = supabase.table('user_credits').select('credits_amount').eq('user_id', user_id).execute()
+        
+        if response.data:
+            return response.data[0].get('credits_amount', 100)  # Domyślnie 100 kredytów
+        
+        # Inicjalizacja nowego użytkownika
+        supabase.table('user_credits').insert({
+            'user_id': user_id,
+            'credits_amount': 100,  # Każdy nowy użytkownik dostaje 100 kredytów
+            'total_credits_purchased': 0,
+            'total_spent': 0
+        }).execute()
+        
+        return 100  # Początkowa liczba kredytów
+    except Exception as e:
+        print(f"Błąd przy pobieraniu kredytów: {e}")
+        return 100  # W razie błędu również zwróć 100
 
 async def add_user_credits(user_id, amount, description=None):
     """Funkcja dla kompatybilności wstecznej"""

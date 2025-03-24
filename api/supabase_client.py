@@ -70,8 +70,14 @@ class SupabaseClient(APIClient):
             query = query.limit(limit)
         
         try:
-            response = await self._request_with_retry(query.execute)
+            # Używamy _request_with_retry, ale bez await na query.execute()
+            response = await self._request_with_retry(self._execute_query, query)
             return response.data
         except Exception as e:
             logger.error(f"Błąd zapytania Supabase: {e}")
             raise
+    
+    # Pomocnicza metoda do wykonywania zapytań bez await
+    def _execute_query(self, query):
+        """Wykonuje zapytanie i zwraca odpowiedź bez await"""
+        return query.execute()

@@ -92,6 +92,7 @@ async def handle_credits_section(update, context, navigation_path=""):
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
+    # Usuwamy await
     credits = get_user_credits(user_id)
     
     message_text = f"*{navigation_path or get_navigation_path('credits', language)}*\n\n"
@@ -360,13 +361,10 @@ async def handle_help_section(update, context):
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
-    # Pobierz tekst pomocy z tłumaczeń
-    help_text = get_text("help_text", language)
-    
     # Przyciski dla sekcji pomocy
     buttons = [
         [InlineKeyboardButton(get_text("commands_list", language, default="Lista komend"), callback_data="help_commands")],
-        [InlineKeyboardButton(get_text("credits_info", language, default="Informacje o kredytach"), callback_data="help_credits")],
+        [InlineKeyboardButton("💰 " + get_text("user_credits", language, default="Kredyty"), callback_data="menu_section_credits")],
         [InlineKeyboardButton(get_text("contact_support", language, default="Kontakt"), callback_data="help_contact")]
     ]
     
@@ -374,6 +372,93 @@ async def handle_help_section(update, context):
         query, context, 'help', 
         "help_options", buttons
     )
+
+async def handle_help_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Obsługuje callbacki związane z sekcją pomocy"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    language = get_user_language(context, user_id)
+    
+    if query.data == "help_commands":
+        # Lista komend
+        commands_text = get_text("help_commands_list", language, default="""
+*Lista dostępnych komend:*
+
+- /start - Rozpocznij korzystanie z bota
+- /credits - Sprawdź stan kredytów
+- /buy - Kup pakiet kredytów
+- /status - Sprawdź status konta
+- /newchat - Rozpocznij nową konwersację
+- /mode - Wybierz tryb czatu
+- /models - Wybierz model AI
+- /image [opis] - Wygeneruj obraz
+- /export - Eksportuj konwersację do PDF
+- /theme - Zarządzaj tematami konwersacji
+- /remind [czas] [treść] - Ustaw przypomnienie
+- /code [kod] - Aktywuj kod promocyjny
+- /creditstats - Analiza wykorzystania kredytów
+- /restart - Zrestartuj informacje o bocie
+        """)
+        
+        keyboard = [[InlineKeyboardButton(get_text("back", language, default="⬅️ Powrót"), callback_data="menu_help")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update_menu(query, commands_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+        return True
+        
+    elif query.data == "help_credits":
+        # Informacje o kredytach
+        credits = get_user_credits(user_id)
+        
+        credits_text = get_text("help_credits_info", language, credits=credits, default=f"""
+*Informacje o systemie kredytów:*
+
+- Aktualna liczba kredytów: *{credits}*
+- Kredyty są używane do wszystkich operacji w bocie
+
+*Koszty operacji:*
+- Wiadomość standardowa (GPT-3.5): 1 kredyt
+- Wiadomość premium (GPT-4o): 3 kredyty
+- Wiadomość ekspercka (GPT-4): 5 kredytów
+- Generowanie obrazu: 10-15 kredytów
+- Analiza dokumentu: 5 kredytów
+- Analiza zdjęcia: 8 kredytów
+
+Użyj /buy aby dokupić kredyty lub /creditstats aby sprawdzić statystyki wykorzystania.
+        """)
+        
+        keyboard = [
+            [InlineKeyboardButton(get_text("buy_credits_btn", language, default="💳 Kup kredyty"), callback_data="menu_credits_buy")],
+            [InlineKeyboardButton(get_text("back", language, default="⬅️ Powrót"), callback_data="menu_help")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update_menu(query, credits_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+        return True
+        
+    elif query.data == "help_contact":
+        # Informacje kontaktowe
+        contact_text = get_text("help_contact_info", language, bot_name=BOT_NAME, default=f"""
+*Kontakt i wsparcie:*
+
+- Email: mypremium@noicyk.pro
+- Telegram: @mypremiumsupportbot
+- Czas odpowiedzi: do 24h w dni robocze
+
+*Zgłaszanie błędów:*
+Jeśli napotkasz problem, opisz dokładnie co się stało i w jakich okolicznościach.
+
+*Sugestie:*
+Chętnie przyjmujemy pomysły na nowe funkcje!
+        """)
+        
+        keyboard = [[InlineKeyboardButton(get_text("back", language, default="⬅️ Powrót"), callback_data="menu_help")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update_menu(query, contact_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+        return True
+        
+    return False
 
 async def handle_history_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """History-related callbacks handler"""
