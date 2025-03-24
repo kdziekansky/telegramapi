@@ -9,44 +9,24 @@ from database.supabase_client import get_message_status
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Obsługuje komendę /help
-    Wyświetla informacje pomocnicze o bocie
+    Obsługuje komendę /help 
+    Wyświetla menu pomocy jako główne menu
     """
-    user_id = update.effective_user.id
-    language = get_user_language(context, user_id)
+    from handlers.menu_handler import handle_help_section
     
-    # Pobierz tekst pomocy z tłumaczeń
-    help_text = get_text("help_text", language)
+    # Utwórz sztuczny obiekt zapytania callback
+    class FakeCallbackQuery:
+        def __init__(self, message):
+            self.message = message
+            self.from_user = update.effective_user
+            self.data = "menu_help"
     
-    # Dodaj tylko przycisk Menu
-    keyboard = [
-        [InlineKeyboardButton("Menu", callback_data="menu_back_main")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Utwórz sztuczny obiekt Update z CallbackQuery
+    fake_update = update
+    fake_update.callback_query = FakeCallbackQuery(update.message)
     
-    try:
-        # Próba wysłania z formatowaniem Markdown
-        await update.message.reply_text(
-            help_text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=reply_markup
-        )
-    except Exception as e:
-        # W przypadku błędu, spróbuj wysłać bez formatowania
-        print(f"Błąd formatowania Markdown w help_command: {e}")
-        try:
-            await update.message.reply_text(
-                help_text.replace("*", "").replace("_", "").replace("`", ""),
-                reply_markup=reply_markup
-            )
-        except Exception as e2:
-            print(f"Drugi błąd w help_command: {e2}")
-            # Ostateczna próba - wysłanie uproszczonego tekstu pomocy
-            simple_help = "Pomoc i informacje o bocie. Dostępne komendy: /start, /credits, /buy, /status, /newchat, /mode, /image, /restart, /help, /code."
-            await update.message.reply_text(
-                simple_help,
-                reply_markup=reply_markup
-            )
+    # Wywołaj sekcję pomocy z menu
+    await handle_help_section(fake_update, context)
 
 async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
