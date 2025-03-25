@@ -5,6 +5,7 @@ import logging
 from typing import List, Dict, Any, AsyncGenerator
 from api.base_client import APIClient
 from config import ANTHROPIC_API_KEY
+from utils.translations import get_text
 
 logger = logging.getLogger(__name__)
 
@@ -54,27 +55,31 @@ class AnthropicClient(APIClient):
         max_tokens = kwargs.pop('max_tokens', 4096)
         temperature = kwargs.pop('temperature', 0.7)
         
-        if stream:
-            response = await self.client.messages.create(
-                model=model,
-                messages=messages,
-                system=system,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                stream=True,
-                **kwargs
-            )
-            return response
-        else:
-            response = await self.client.messages.create(
-                model=model,
-                messages=messages,
-                system=system,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                **kwargs
-            )
-            return response
+        try:
+            if stream:
+                response = await self.client.messages.create(
+                    model=model,
+                    messages=messages,
+                    system=system,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    stream=True,
+                    **kwargs
+                )
+                return response
+            else:
+                response = await self.client.messages.create(
+                    model=model,
+                    messages=messages,
+                    system=system,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    **kwargs
+                )
+                return response
+        except Exception as e:
+            logger.error(f"Błąd w _make_anthropic_request: {e}", exc_info=True)
+            raise
     
     def _convert_to_anthropic_format(self, openai_messages: List[Dict[str, str]]) -> List[Dict]:
         """Konwertuje format wiadomości OpenAI na format Anthropic"""
@@ -90,7 +95,7 @@ class AnthropicClient(APIClient):
         
         return anthropic_messages
     
-    async def chat_completion_text(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", **kwargs) -> str:
+    async def chat_completion_text(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", language: str = "pl", **kwargs) -> str:
         """Generuje odpowiedź czatu i zwraca tekst"""
         system_prompt = None
         user_messages = messages.copy()
@@ -115,9 +120,10 @@ class AnthropicClient(APIClient):
             return response.content[0].text
         except Exception as e:
             logger.error(f"Błąd w chat_completion_text: {e}", exc_info=True)
-            return f"Wystąpił błąd: {str(e)}"
+            error_msg = get_text("response_error", language, error=str(e), default=f"Wystąpił błąd: {str(e)}")
+            return error_msg
     
-    async def chat_completion_stream(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", **kwargs) -> AsyncGenerator[str, None]:
+    async def chat_completion_stream(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", language: str = "pl", **kwargs) -> AsyncGenerator[str, None]:
         """Generuje strumieniową odpowiedź czatu"""
         system_prompt = None
         user_messages = messages.copy()
@@ -141,8 +147,18 @@ class AnthropicClient(APIClient):
             )
             
             async for chunk in stream:
-                if chunk.delta and chunk.delta.text:
+                # Obsługa różnych typów zdarzeń ze strumienia Anthropic
+                if hasattr(chunk, 'delta') and chunk.delta and hasattr(chunk.delta, 'text'):
+                    # Format v2 API
                     yield chunk.delta.text
+                elif hasattr(chunk, 'type') and chunk.type == 'content_block_delta':
+                    # Format Claude 3 API
+                    if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+                        yield chunk.delta.text
+                elif hasattr(chunk, 'content_block') and chunk.content_block and hasattr(chunk.content_block, 'text'):
+                    # Inny możliwy format
+                    yield chunk.content_block.text
         except Exception as e:
             logger.error(f"Błąd w chat_completion_stream: {e}", exc_info=True)
-            yield f"Wystąpił błąd podczas generowania odpowiedzi: {str(e)}"
+            error_msg = get_text("stream_error", language, error=str(e), default=f"Wystąpił błąd podczas generowania odpowiedzi: {str(e)}")
+            yield error_msg

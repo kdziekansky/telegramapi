@@ -17,20 +17,22 @@ async def chat_completion_stream(messages, model=None):
     Funkcja dla kompatybilności wstecznej zwracająca asynchroniczny generator
     """
     try:
-        # Zaktualizowana lista modeli Claude
+        # Lista modeli Claude
         claude_models = [
-            "claude-3-5-sonnet-20240307", 
-            "claude-3-haiku-20240307", 
-            "claude-3-sonnet-20240229", 
-            "claude-3-opus-20240229"
+            "claude-3-7-sonnet-20250219",
+            "claude-3-5-haiku-20241022", 
+            "claude-3-opus-20240229",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-sonnet-20240620",
+            "claude-3-haiku-20240307"
         ]
         
-        # Sprawdź czy stare nazwy modeli Claude i mapuj je na nowe
+        # Mapowanie starych nazw modeli Claude na nowe
         claude_model_mapping = {
-            "claude-3-5-sonnet": "claude-3-5-sonnet-20240307",
-            "claude-3-5-haiku": "claude-3-haiku-20240307", 
+            "claude-3-5-sonnet": "claude-3-5-sonnet-20240620",
+            "claude-3-5-haiku": "claude-3-5-haiku-20241022", 
             "claude-3-haiku": "claude-3-haiku-20240307",
-            "claude-3-sonnet": "claude-3-sonnet-20240229",
+            "claude-3-sonnet": "claude-3-5-sonnet-20240620",
             "claude-3-opus": "claude-3-opus-20240229"
         }
         
@@ -41,8 +43,13 @@ async def chat_completion_stream(messages, model=None):
         
         if model in claude_models:
             logger.info(f"Używam API Anthropic dla modelu {model}")
-            # Użyj API service do obsługi modelu Claude
-            async for chunk in api_service.chat_completion_stream(messages, model):
+            # Użyj klienta Anthropic bezpośrednio dla modeli Claude
+            from api.anthropic_client import AnthropicClient
+            from config import ANTHROPIC_API_KEY
+            
+            anthropic_client = AnthropicClient(api_key=ANTHROPIC_API_KEY)
+            async_generator = anthropic_client.chat_completion_stream(messages, model)
+            async for chunk in async_generator:
                 yield chunk
         else:
             # Bezpośrednie utworzenie klienta OpenAI dla modeli OpenAI
@@ -62,8 +69,8 @@ async def chat_completion_stream(messages, model=None):
                 if chunk.choices and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
     except Exception as e:
-        logger.error(f"Błąd w chat_completion_stream: {e}")
-        yield "Wystąpił błąd podczas generowania odpowiedzi."
+        logger.error(f"Błąd w chat_completion_stream: {e}", exc_info=True)
+        yield f"Wystąpił błąd podczas generowania odpowiedzi: {str(e)}"
 
 async def generate_image_dall_e(prompt):
     """Funkcja dla kompatybilności wstecznej"""
