@@ -111,7 +111,7 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     credits = get_user_credits(user_id)
     
     # Pobranie aktualnego trybu czatu
-    from config import CHAT_MODES
+    from config import CHAT_MODES, BOT_NAME
     current_mode = get_text("no_mode", language)
     current_mode_cost = 1
     if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
@@ -131,8 +131,8 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     model_name = AVAILABLE_MODELS.get(current_model, "Unknown Model")
     
-    # Pobierz status wiadomości
-    message_status = get_message_status(user_id)
+    # Pobierz status wiadomości - dodajemy await
+    message_status = await get_message_status(user_id)
     
     # Stwórz wiadomość o statusie, używając tłumaczeń
     message = f"""
@@ -161,12 +161,6 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Dodaj przyciski menu dla łatwiejszej nawigacji
     keyboard = [
         [InlineKeyboardButton(get_text("buy_credits_btn", language), callback_data="menu_credits_buy")],
-        [InlineKeyboardButton(get_text("menu_chat_mode", language), callback_data="menu_section_chat_modes")],
-        # Pasek szybkiego dostępu
-        [
-            InlineKeyboardButton("🆕 " + get_text("new_chat", language, default="Nowa rozmowa"), callback_data="quick_new_chat"),
-            InlineKeyboardButton("💬 " + get_text("last_chat", language, default="Ostatnia rozmowa"), callback_data="quick_last_chat")
-        ],
         [InlineKeyboardButton("⬅️ " + get_text("back_to_main_menu", language, default="Powrót do menu głównego"), callback_data="menu_back_main")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)

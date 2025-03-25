@@ -276,7 +276,7 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         is_subscription = payment_method_code == "stripe_subscription"
         
         # Pobierz pakiety kredytów
-        packages = get_credit_packages()
+        packages = await get_credit_packages()
         if not packages:
             # Użycie centralnego systemu menu
             await update_menu(
@@ -340,7 +340,10 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
     # Obsługa wyboru pakietu z określoną metodą płatności
     elif query.data.startswith("buy_package_"):
         parts = query.data.split("_")
-        if len(parts) >= 4:
+        if len(parts) >= 5 and parts[3] == "subscription":
+            payment_method_code = parts[2] + "_" + parts[3]  # "stripe_subscription"
+            package_id = int(parts[4])  # teraz bierze "2"
+        else:
             payment_method_code = parts[2]
             package_id = int(parts[3])
             

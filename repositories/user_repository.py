@@ -80,3 +80,46 @@ class UserRepository(BaseRepository[User]):
         except Exception as e:
             logger.error(f"Błąd podczas zwiększania licznika wiadomości: {e}")
             return False
+            
+    async def get_message_status(self, user_id: int) -> dict:
+        """
+        Pobiera status wiadomości dla użytkownika
+        
+        Args:
+            user_id (int): ID użytkownika
+            
+        Returns:
+            dict: Status wiadomości
+        """
+        try:
+            # Pobierz dane użytkownika
+            result = await self.client.query(
+                self.table,
+                query_type="select",
+                columns="messages_used",
+                filters={"id": user_id}
+            )
+            
+            # Domyślne wartości
+            messages_used = 0
+            messages_limit = 1000  # Domyślny limit wiadomości
+            
+            if result:
+                messages_used = result[0].get('messages_used', 0)
+            
+            # Oblicz pozostałą liczbę wiadomości
+            messages_left = max(0, messages_limit - messages_used)
+            
+            return {
+                "messages_used": messages_used,
+                "messages_limit": messages_limit,
+                "messages_left": messages_left
+            }
+        except Exception as e:
+            logger.error(f"Błąd przy pobieraniu statusu wiadomości: {e}")
+            # Zwróć domyślne wartości w przypadku błędu
+            return {
+                "messages_used": 0,
+                "messages_limit": 1000,
+                "messages_left": 1000
+            }
