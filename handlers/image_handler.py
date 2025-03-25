@@ -19,8 +19,8 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     credit_cost = CREDIT_COSTS["image"][quality]
     credits = get_user_credits(user_id)
     
-    if not check_user_credits(user_id, credit_cost):
-        warning_message = create_header("Brak wystarczających kredytów", "warning") + \
+    if not await check_user_credits(user_id, credit_cost):
+        warning_message = create_header("Niewystarczające kredyty", "warning") + \
             f"Nie masz wystarczającej liczby kredytów.\n\n" + \
             f"▪️ Koszt operacji: *{credit_cost}* kredytów\n" + \
             f"▪️ Twój stan kredytów: *{credits}* kredytów\n\n" + \
@@ -78,10 +78,10 @@ async def generate_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.chat.send_action(action=ChatAction.UPLOAD_PHOTO)
     
+    credits_before = credits
     image_url = await generate_image_dall_e(prompt)
     
-    credits_before = credits
-    deduct_user_credits(user_id, credit_cost, get_text("image_generation", language, default="Generowanie obrazu"))
+    await deduct_user_credits(user_id, credit_cost, get_text("image_generation", language, default="Generowanie obrazu"))
     credits_after = get_user_credits(user_id)
     
     if image_url:
@@ -132,7 +132,7 @@ async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAUL
         credit_cost = CREDIT_COSTS["image"]["standard"]
         credits = get_user_credits(user_id)
         
-        if not check_user_credits(user_id, credit_cost):
+        if not await check_user_credits(user_id, credit_cost):
             await update_menu(
                 query,
                 create_header("Brak wystarczających kredytów", "error") +
@@ -144,7 +144,7 @@ async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAUL
         
         credits_before = credits
         image_url = await generate_image_dall_e(prompt)
-        deduct_user_credits(user_id, credit_cost, get_text("image_generation", language, default="Generowanie obrazu"))
+        await deduct_user_credits(user_id, credit_cost, get_text("image_generation", language, default="Generowanie obrazu"))
         credits_after = get_user_credits(user_id)
         
         if image_url:
