@@ -63,22 +63,15 @@ def create_payment_url(
 ) -> Tuple[bool, str]:
     """
     Tworzy URL do płatności dla określonej metody płatności
-    
-    Args:
-        user_id (int): ID użytkownika
-        package_id (int): ID pakietu kredytów
-        payment_method_code (str): Kod metody płatności
-        is_subscription (bool): Czy to jest subskrypcja
-    
-    Returns:
-        Tuple[bool, str]: (Czy operacja się powiodła, URL do płatności lub komunikat błędu)
     """
     try:
         # Obsługa różnych metod płatności
         if payment_method_code == 'stripe':
             return create_stripe_payment(user_id, package_id, is_subscription=False)
         elif payment_method_code == 'stripe_subscription':
-            return create_stripe_payment(user_id, package_id, is_subscription=True)
+            result = create_stripe_payment(user_id, package_id, is_subscription=True)
+            logger.info(f"Wynik tworzenia subskrypcji Stripe: {result}")
+            return result
         elif payment_method_code in ['allegro', 'russia_payment']:
             # Dla metod zewnętrznych pobierz URL z bazy danych
             response = requests.get(
@@ -98,6 +91,8 @@ def create_payment_url(
             else:
                 return False, "Nie znaleziono metody płatności."
         else:
+            # Domyślna obsługa nieznanych metod
+            logger.warning(f"Nieobsługiwana metoda płatności: {payment_method_code}")
             return False, "Nieobsługiwana metoda płatności."
     except Exception as e:
         logger.error(f"Wyjątek podczas tworzenia URL płatności: {e}")

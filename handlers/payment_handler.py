@@ -347,65 +347,65 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             payment_method_code = parts[2]
             package_id = int(parts[3])
             
-            # Sprawdź czy to jest subskrypcja
-            is_subscription = payment_method_code == "stripe_subscription"
+        # Sprawdź czy to jest subskrypcja
+        is_subscription = payment_method_code == "stripe_subscription"
+        
+        # Utwórz URL płatności
+        success, payment_url = create_payment_url(
+            user_id, package_id, payment_method_code, is_subscription
+        )
+        
+        if success and payment_url:
+            # Utwórz przycisk do przejścia do płatności
+            keyboard = [[
+                InlineKeyboardButton(
+                    get_text("proceed_to_payment", language, default="Przejdź do płatności"),
+                    url=payment_url
+                )
+            ]]
             
-            # Utwórz URL płatności
-            success, payment_url = create_payment_url(
-                user_id, package_id, payment_method_code, is_subscription
+            # Dodaj przycisk powrotu
+            keyboard.append([
+                InlineKeyboardButton(
+                    get_text("back", language),
+                    callback_data=f"payment_method_{payment_method_code}"
+                )
+            ])
+            
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Dostosuj wiadomość w zależności od metody płatności
+            if payment_method_code in ["allegro", "russia_payment"]:
+                message = get_text(f"external_payment_instructions_{payment_method_code}", language, 
+                                  default="Kliknij przycisk poniżej, aby przejść do płatności zewnętrznej. Po zakupie otrzymasz kod, który możesz aktywować za pomocą komendy /code [twój_kod].")
+            elif is_subscription:
+                message = get_text("subscription_payment_instructions", language, 
+                                  default="Kliknij przycisk poniżej, aby ustawić miesięczną subskrypcję. Kredyty będą dodawane automatycznie co miesiąc po pobraniu opłaty.")
+            else:
+                message = get_text("payment_instructions", language, 
+                                  default="Kliknij przycisk poniżej, aby przejść do płatności. Po zakończeniu transakcji kredyty zostaną automatycznie dodane do Twojego konta.")
+            
+            # Użycie centralnego systemu menu
+            await update_menu(
+                query,
+                message,
+                reply_markup,
+                parse_mode=ParseMode.MARKDOWN
             )
             
-            if success and payment_url:
-                # Utwórz przycisk do przejścia do płatności
-                keyboard = [[
-                    InlineKeyboardButton(
-                        get_text("proceed_to_payment", language, default="Przejdź do płatności"),
-                        url=payment_url
-                    )
-                ]]
-                
-                # Dodaj przycisk powrotu
-                keyboard.append([
-                    InlineKeyboardButton(
-                        get_text("back", language),
-                        callback_data=f"payment_method_{payment_method_code}"
-                    )
-                ])
-                
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                # Dostosuj wiadomość w zależności od metody płatności
-                if payment_method_code in ["allegro", "russia_payment"]:
-                    message = get_text(f"external_payment_instructions_{payment_method_code}", language, 
-                                      default="Kliknij przycisk poniżej, aby przejść do płatności zewnętrznej. Po zakupie otrzymasz kod, który możesz aktywować za pomocą komendy /code [twój_kod].")
-                elif is_subscription:
-                    message = get_text("subscription_payment_instructions", language, 
-                                      default="Kliknij przycisk poniżej, aby ustawić miesięczną subskrypcję. Kredyty będą dodawane automatycznie co miesiąc po pobraniu opłaty.")
-                else:
-                    message = get_text("payment_instructions", language, 
-                                      default="Kliknij przycisk poniżej, aby przejść do płatności. Po zakończeniu transakcji kredyty zostaną automatycznie dodane do Twojego konta.")
-                
-                # Użycie centralnego systemu menu
-                await update_menu(
-                    query,
-                    message,
-                    reply_markup,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-                
-                # Zapisz stan menu
-                store_menu_state(context, user_id, f'payment_url_{payment_method_code}_{package_id}')
-                
-            else:
-                # Wyświetl błąd, jeśli nie udało się utworzyć URL płatności
-                # Użycie centralnego systemu menu
-                await update_menu(
-                    query,
-                    get_text("payment_creation_error", language, default="Wystąpił błąd podczas tworzenia płatności. Spróbuj ponownie później."),
-                    InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data=f"payment_method_{payment_method_code}")]]),
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            return True
+            # Zapisz stan menu
+            store_menu_state(context, user_id, f'payment_url_{payment_method_code}_{package_id}')
+            
+        else:
+            # Wyświetl błąd, jeśli nie udało się utworzyć URL płatności
+            # Użycie centralnego systemu menu
+            await update_menu(
+                query,
+                get_text("payment_creation_error", language, default="Wystąpił błąd podczas tworzenia płatności. Spróbuj ponownie później."),
+                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data=f"payment_method_{payment_method_code}")]]),
+                parse_mode=ParseMode.MARKDOWN
+            )
+        return True
     
     # Obsługa komendy subskrypcji
     elif query.data == "subscription_command":
