@@ -327,7 +327,8 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
         
         try:
             from database.credits_client import get_user_credit_stats
-            stats = get_user_credit_stats(user_id)
+            # Dodane await przed wywołaniem funkcji asynchronicznej
+            stats = await get_user_credit_stats(user_id)
             
             if stats:
                 last_purchase = "Brak"
@@ -385,14 +386,16 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             from utils.credit_analytics import generate_credit_usage_chart, generate_usage_breakdown_chart
             
-            chart = generate_credit_usage_chart(user_id)
+            # Dodane await przed wywołaniem funkcji asynchronicznej
+            chart = await generate_credit_usage_chart(user_id)
             if chart:
                 await update.message.reply_photo(
                     photo=chart,
                     caption="Historia wykorzystania kredytów"
                 )
                 
-            breakdown_chart = generate_usage_breakdown_chart(user_id)
+            # Dodane await przed wywołaniem funkcji asynchronicznej
+            breakdown_chart = await generate_usage_breakdown_chart(user_id)
             if breakdown_chart:
                 await update.message.reply_photo(
                     photo=breakdown_chart,
@@ -400,6 +403,8 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
                 )
         except Exception as e:
             print(f"Błąd przy generowaniu wykresów: {e}")
+            import traceback
+            traceback.print_exc()
             
     except Exception as e:
         print(f"Błąd w credit_stats_command: {e}")

@@ -274,3 +274,121 @@ class CreditRepository:
         except Exception as e:
             logger.error(f"Błąd zakupu kredytów: {e}")
             return False, None
+            
+    async def get_transactions(self, user_id: int, days: int = 30) -> List[Dict[str, Any]]:
+        """Pobiera historię transakcji kredytowych użytkownika z ostatnich dni"""
+        try:
+            # Oblicz datę początkową
+            start_date = (datetime.now(pytz.UTC) - timedelta(days=days)).isoformat()
+            
+            # Pobierz transakcje z określonego okresu
+            result = await self.client.query(
+                self.transactions_table,
+                query_type="select",
+                filters={"user_id": user_id},
+                order_by="created_at"
+            )
+            
+            # Filtruj transakcje po dacie
+            filtered_transactions = [t for t in result if t.get('created_at', '') >= start_date]
+            
+            return filtered_transactions
+        except Exception as e:
+            logger.error(f"Błąd pobierania transakcji użytkownika {user_id}: {e}")
+            return []
+            
+    async def get_usage_by_type(self, user_id: int, days: int = 30) -> Dict[str, int]:
+        """Pobiera rozkład zużycia kredytów według rodzaju operacji"""
+        try:
+            # Pobierz transakcje
+            transactions = await self.get_transactions(user_id, days)
+            
+            # Wyfiltruj tylko transakcje typu 'deduct'
+            deduct_transactions = [t for t in transactions if t.get('transaction_type') == 'deduct']
+            
+            # Przygotuj kategorie
+            usage_by_type = {}
+            
+            # Analizuj opisy transakcji, aby określić kategorie
+            for transaction in deduct_transactions:
+                description = transaction.get('description', '').lower()
+                amount = transaction.get('amount', 0)
+                
+                # Określ kategorię na podstawie opisu
+                if any(term in description for term in ['wiadomość', 'message', 'chat', 'gpt']):
+                    category = "Wiadomości"
+                elif any(term in description for term in ['obraz', 'dall-e', 'image', 'dall']):
+                    category = "Obrazy"
+                elif any(term in description for term in ['dokument', 'document', 'pdf', 'plik']):
+                    category = "Dokumenty"
+                elif any(term in description for term in ['zdjęci', 'zdjęc', 'photo', 'foto']):
+                    category = "Zdjęcia"
+                else:
+                    category = "Inne"
+                
+                # Dodaj do odpowiedniej kategorii
+                if category not in usage_by_type:
+                    usage_by_type[category] = 0
+                usage_by_type[category] += amount
+            
+            return usage_by_type
+        except Exception as e:
+            logger.error(f"Błąd pobierania rozkładu zużycia kredytów: {e}")
+            return {"Błąd analizy": 1}
+
+    async def get_user_stats(self, user_id: int) -> Dict[str, Any]:
+        """Pobiera statystyki użytkownika dotyczące kredytów"""
+        try:
+            # Pobierz dane kredytów użytkownika
+            credits_result = await self.client.query(
+                self.credits_table,
+                query_type="select",
+                filters={"user_id": user_id}
+            )
+            
+            if not credits_result:
+                return {}
+            
+            user_credits = credits_result[0]
+            
+            # Pobierz historię transakcji
+            transactions = await self.get_transactions(user_id, days=90)
+            
+            # Oblicz średnie dzienne zużycie
+            deduct_transactions = [t for t in transactions if t.get('transaction_type') == 'deduct']
+            total_usage = sum(t.get('amount', 0) for t in deduct_transactions)
+            days_analyzed = min(90, len(deduct_transactions))
+            avg_daily_usage = total_usage / max(1, days_analyzed) if deduct_transactions else 0
+            
+            # Znajdź najdroższą operację
+            most_expensive_operation = None
+            max_amount = 0
+            for t in deduct_transactions:
+                amount = t.get('amount', 0)
+                if amount > max_amount:
+                    max_amount = amount
+                    most_expensive_operation = t.get('description', 'Nieznana operacja')
+            
+            # Przygotuj historię transakcji do zwrotu
+            usage_history = []
+            for t in transactions:
+                usage_history.append({
+                    'type': t.get('transaction_type', ''),
+                    'amount': t.get('amount', 0),
+                    'date': t.get('created_at', ''),
+                    'description': t.get('description', '')
+                })
+            
+            # Zwróć zebrane statystyki
+            return {
+                'total_purchased': user_credits.get('total_credits_purchased', 0),
+                'total_spent': user_credits.get('total_spent', 0),
+                'current_balance': user_credits.get('credits_amount', 0),
+                'last_purchase': user_credits.get('last_purchase_date', None),
+                'avg_daily_usage': avg_daily_usage,
+                'most_expensive_operation': most_expensive_operation,
+                'usage_history': usage_history
+            }
+        except Exception as e:
+            logger.error(f"Błąd pobierania statystyk użytkownika {user_id}: {e}")
+            return {}

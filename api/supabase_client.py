@@ -3,14 +3,13 @@ import logging
 from typing import Dict, List, Any, Optional
 from supabase import create_client
 from api.base_client import APIClient
-from config import SUPABASE_URL, SUPABASE_KEY
 
 logger = logging.getLogger(__name__)
 
 class SupabaseClient(APIClient):
     """Klient API Supabase z obsługą błędów i ponawianiem"""
     
-    def __init__(self, url: str = SUPABASE_URL, key: str = SUPABASE_KEY, max_retries: int = 3, retry_delay: float = 1.0):
+    def __init__(self, url: str, key: str, max_retries: int = 3, retry_delay: float = 1.0):
         super().__init__(max_retries, retry_delay)
         
         try:
@@ -40,7 +39,7 @@ class SupabaseClient(APIClient):
     async def query(self, table: str, query_type: str = "select", 
                    columns: str = "*", filters: Optional[Dict] = None,
                    data: Optional[Dict] = None, order_by: Optional[str] = None,
-                   limit: Optional[int] = None) -> Dict:
+                   limit: Optional[int] = None) -> List:
         """Wykonuje zapytanie do Supabase"""
         query = self.client.table(table)
         
@@ -70,14 +69,14 @@ class SupabaseClient(APIClient):
             query = query.limit(limit)
         
         try:
-            # Używamy _request_with_retry, ale bez await na query.execute()
-            response = await self._request_with_retry(self._execute_query, query)
+            # Poprawione: używamy _execute_query_sync zamiast _execute_query
+            response = await self._request_with_retry(self._execute_query_sync, query)
             return response.data
         except Exception as e:
             logger.error(f"Błąd zapytania Supabase: {e}")
-            raise
+            return []
     
-    # Pomocnicza metoda do wykonywania zapytań bez await
-    def _execute_query(self, query):
-        """Wykonuje zapytanie i zwraca odpowiedź bez await"""
+    # Nowa metoda, która wykonuje zapytanie synchronicznie (bez await)
+    def _execute_query_sync(self, query):
+        """Wykonuje zapytanie synchronicznie - bez użycia await"""
         return query.execute()

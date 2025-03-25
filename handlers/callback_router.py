@@ -33,6 +33,8 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # First, acknowledge the callback to remove waiting state
     await query.answer()
     
+    # Usunięto obsługę callback'ów związanych z tematami (theme)
+    
     # Menu section callbacks
     if query.data.startswith("menu_section_") or query.data == "menu_image_generate" or query.data == "menu_help":
         return await route_menu_section_callback(update, context)
@@ -255,11 +257,11 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
     if query.data == "quick_new_chat":
         # Handle new chat creation
         try:
-            # Nie używamy await przy create_new_conversation - to nie jest async funkcja
+            # Dodane await przed create_new_conversation
             from database.supabase_client import create_new_conversation
             from utils.user_utils import mark_chat_initialized
             
-            conversation = create_new_conversation(user_id)  # Usunięto await
+            conversation = await create_new_conversation(user_id)
             mark_chat_initialized(context, user_id)
             
             await query.answer(get_text("new_chat_created", language))
@@ -324,12 +326,12 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             
     elif query.data == "quick_last_chat":
         try:
-            # Get active conversation - nie używamy await
+            # Get active conversation - Dodane await
             from database.supabase_client import get_active_conversation
             
             # Próba pobrania konwersacji - jeśli się nie uda, obsługujemy błąd
             try:
-                conversation = get_active_conversation(user_id)  # Usunięto await
+                conversation = await get_active_conversation(user_id)
             except Exception as e:
                 # W przypadku błędu używamy trybu offline
                 logger.warning(f"Cannot access database, using offline mode: {e}")
@@ -343,10 +345,10 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             else:
                 await query.answer(get_text("no_active_chat", language, default="Brak aktywnej rozmowy"))
                 
-                # Create new conversation - bez await
+                # Create new conversation - Dodane await
                 from database.supabase_client import create_new_conversation
                 try:
-                    create_new_conversation(user_id)
+                    await create_new_conversation(user_id)
                 except Exception as e:
                     logger.warning(f"Error creating conversation (offline mode): {e}")
                 

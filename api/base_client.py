@@ -1,7 +1,8 @@
 # api/base_client.py
 import logging
 import time
-from typing import Any, Dict, Optional
+import asyncio
+from typing import Any, Dict, Optional, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,12 @@ class APIClient:
         
         while retries < self.max_retries:
             try:
-                return await request_func(*args, **kwargs)
+                # Rozróżnienie między funkcjami sync i async
+                if asyncio.iscoroutinefunction(request_func):
+                    return await request_func(*args, **kwargs)
+                else:
+                    # Dla funkcji synchronicznych nie używamy await
+                    return request_func(*args, **kwargs)
             except Exception as e:
                 retries += 1
                 last_error = e
@@ -28,7 +34,7 @@ class APIClient:
                 if retries < self.max_retries:
                     sleep_time = self.retry_delay * (2 ** (retries - 1))
                     logger.info(f"Ponowna próba za {sleep_time:.2f} sekund...")
-                    time.sleep(sleep_time)
+                    await asyncio.sleep(sleep_time)
                     
         logger.error(f"Żądanie API nie powiodło się po {self.max_retries} próbach: {str(last_error)}")
         raise last_error

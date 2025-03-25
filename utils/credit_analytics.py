@@ -15,10 +15,11 @@ from utils.user_utils import get_user_language
 # Dodaję loggera dla lepszej diagnostyki
 logger = logging.getLogger(__name__)
 
-def generate_credit_usage_chart(user_id, days=30, language="pl"):
+async def generate_credit_usage_chart(user_id, days=30, language="pl"):
     """Generuje wykres użycia kredytów w czasie"""
     try:
-        transactions = get_credit_transactions(user_id, days)
+        # Dodane await przed wywołaniem funkcji asynchronicznej
+        transactions = await get_credit_transactions(user_id, days)
         
         if not transactions:
             logger.warning(f"Brak transakcji dla użytkownika {user_id} w okresie {days} dni")
@@ -46,21 +47,23 @@ def generate_credit_usage_chart(user_id, days=30, language="pl"):
         for trans in transactions:
             try:
                 # Konwersja formatu daty
-                created_at = trans['created_at']
+                created_at = trans.get('created_at')
                 if isinstance(created_at, str):
                     dt = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
                 else:
                     dt = created_at
                     
                 dates.append(dt)
-                balances.append(trans['credits_after'])
+                balances.append(trans.get('credits_after', 0))
                 
-                if trans['transaction_type'] == 'deduct':
-                    usage_amounts.append(trans['amount'])
+                amount = trans.get('amount', 0)
+                
+                if trans.get('transaction_type') == 'deduct':
+                    usage_amounts.append(amount)
                     purchase_amounts.append(0)
-                elif trans['transaction_type'] in ['add', 'purchase', 'subscription', 'subscription_renewal']:
+                elif trans.get('transaction_type') in ['add', 'purchase', 'subscription', 'subscription_renewal']:
                     usage_amounts.append(0)
-                    purchase_amounts.append(trans['amount'])
+                    purchase_amounts.append(amount)
             except Exception as e:
                 logger.error(f"Błąd przy przetwarzaniu transakcji: {e}", exc_info=True)
         
@@ -96,9 +99,12 @@ def generate_credit_usage_chart(user_id, days=30, language="pl"):
         # Wykres użycia/zakupów
         plt.subplot(2, 1, 2)
         
-        # Konwertujemy daty na liczby dla łatwiejszego wykreślania słupków
-        dates_num = [x.timestamp() for x in dates]
-        width = min(7200, (max(dates_num) - min(dates_num)) / len(dates_num) * 0.8) if len(dates_num) > 1 else 7200
+        # Użyj matplotlib.dates zamiast timestamp
+        import matplotlib.dates as mdates
+        dates_num = mdates.date2num(dates)
+        
+        # Oblicz szerokość słupków (w jednostkach daty Matplotlib)
+        width = min(1.0, (max(dates_num) - min(dates_num)) / len(dates_num) * 0.4) if len(dates_num) > 1 else 1.0
         
         # Wykres słupkowy użycia
         usage_bars = plt.bar([d - width/2 for d in dates_num], usage_amounts, width=width, color='r', alpha=0.6, label='Wydane kredyty')
@@ -144,16 +150,18 @@ def generate_credit_usage_chart(user_id, days=30, language="pl"):
         plt.close()
         return buf
 
-def get_credit_usage_breakdown(user_id, days=30, language="pl"):
+async def get_credit_usage_breakdown(user_id, days=30, language="pl"):
     """Pobiera rozkład zużycia kredytów według rodzaju operacji z dodatkową obsługą błędów"""
     try:
         from database.supabase_client import get_credit_usage_by_type
-        breakdown = get_credit_usage_by_type(user_id, days)
+        # Dodane await przed wywołaniem funkcji asynchronicznej
+        breakdown = await get_credit_usage_by_type(user_id, days)
         
         # Jeśli brak kategorii, stwórz podstawowy rozkład
         if not breakdown:
             logger.warning(f"Brak danych rozkładu dla użytkownika {user_id} - wykorzystujemy dane transakcji")
-            transactions = get_credit_transactions(user_id, days)
+            # Dodane await przed wywołaniem funkcji asynchronicznej
+            transactions = await get_credit_transactions(user_id, days)
             
             # Nazwy kategorii w odpowiednim języku
             messages_category = get_text("messages_category", language, default="Wiadomości")
@@ -197,10 +205,11 @@ def get_credit_usage_breakdown(user_id, days=30, language="pl"):
         error_category = get_text("error_category", language, default="Błąd analizy")
         return {error_category: 1}
 
-def generate_usage_breakdown_chart(user_id, days=30, language="pl"):
+async def generate_usage_breakdown_chart(user_id, days=30, language="pl"):
     """Generuje wykres kołowy rozkładu zużycia kredytów z lepszą obsługą błędów"""
     try:
-        usage_breakdown = get_credit_usage_breakdown(user_id, days, language)
+        # Dodane await przed wywołaniem funkcji asynchronicznej
+        usage_breakdown = await get_credit_usage_breakdown(user_id, days, language)
         
         if not usage_breakdown:
             logger.warning(f"Brak danych rozkładu dla użytkownika {user_id}")
@@ -261,10 +270,14 @@ def generate_usage_breakdown_chart(user_id, days=30, language="pl"):
         plt.close()
         return buf
 
-def predict_credit_depletion(user_id, days=30, language="pl"):
+async def predict_credit_depletion(user_id, days=30, language="pl"):
     """Przewiduje, kiedy skończą się kredyty użytkownika z ulepszoną logiką"""
     try:
-        transactions = get_credit_transactions(user_id, days)
+        # Bezpośredni import, aby uniknąć problemów z importami cyklicznymi
+        from database.supabase_client import get_credit_transactions
+        
+        # Używamy await!
+        transactions = await get_credit_transactions(user_id, days)
         current_balance = get_user_credits(user_id)
         
         # Poprawiono logikę sprawdzania danych

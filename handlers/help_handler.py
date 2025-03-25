@@ -1,32 +1,57 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
-from config import DEFAULT_MODEL, BOT_NAME, CREDIT_COSTS, AVAILABLE_MODELS, CHAT_MODES
 from utils.translations import get_text
-from handlers.menu_handler import get_user_language
-from database.credits_client import get_user_credits
-from database.supabase_client import get_message_status
+from utils.user_utils import get_user_language
+from utils.menu import store_menu_state
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Obsługuje komendę /help 
-    Wyświetla menu pomocy jako główne menu
+    Wyświetla menu pomocy jako sekcję w głównym menu
     """
-    from handlers.menu_handler import handle_help_section
+    user_id = update.effective_user.id
+    language = get_user_language(context, user_id)
     
-    # Utwórz sztuczny obiekt zapytania callback
-    class FakeCallbackQuery:
-        def __init__(self, message):
-            self.message = message
-            self.from_user = update.effective_user
-            self.data = "menu_help"
+    # Przyciski dla sekcji pomocy
+    buttons = [
+        [InlineKeyboardButton(get_text("commands_list", language, default="Lista komend"), callback_data="help_commands")],
+        [InlineKeyboardButton("💰 " + get_text("user_credits", language, default="Kredyty"), callback_data="menu_section_credits")],
+        [InlineKeyboardButton(get_text("contact_support", language, default="Kontakt"), callback_data="help_contact")]
+    ]
     
-    # Utwórz sztuczny obiekt Update z CallbackQuery
-    fake_update = update
-    fake_update.callback_query = FakeCallbackQuery(update.message)
+    # Dodaj przyciski szybkiego dostępu
+    buttons.append([
+        InlineKeyboardButton("🆕 " + get_text("new_chat", language, default="Nowa rozmowa"), callback_data="quick_new_chat"),
+        InlineKeyboardButton("💬 " + get_text("last_chat", language, default="Ostatnia rozmowa"), callback_data="quick_last_chat"),
+        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language, default="Kup kredyty"), callback_data="quick_buy_credits")
+    ])
     
-    # Wywołaj sekcję pomocy z menu
-    await handle_help_section(fake_update, context)
+    # Dodaj przycisk powrotu do menu głównego
+    buttons.append([InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")])
+    
+    # Utwórz klawiaturę
+    reply_markup = InlineKeyboardMarkup(buttons)
+    
+    # Przygotuj tekst pomocy bez znaczników Markdown
+    help_title = "Pomoc i informacje"
+    message_text = f"{help_title}\n\n{get_text('help_options', language, default='Wybierz jedną z opcji poniżej:')}"
+    
+    try:
+        # Próba wysłania z formatowaniem
+        message = await update.message.reply_text(
+            message_text,
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        # W przypadku błędu wyślij prostszą wiadomość
+        message = await update.message.reply_text(
+            "Pomoc i informacje\n\nWybierz jedną z opcji poniżej:",
+            reply_markup=reply_markup
+        )
+    
+    # Zapisz stan menu
+    store_menu_state(context, user_id, 'help', message.message_id)
 
 async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -40,6 +65,7 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     credits = get_user_credits(user_id)
     
     # Pobranie aktualnego trybu czatu
+    from config import CHAT_MODES
     current_mode = get_text("no_mode", language)
     current_mode_cost = 1
     if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
@@ -50,6 +76,7 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_mode_cost = CHAT_MODES[mode_id]["credit_cost"]
     
     # Pobierz aktualny model
+    from config import DEFAULT_MODEL, AVAILABLE_MODELS
     current_model = DEFAULT_MODEL
     if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
         user_data = context.chat_data['user_data'][user_id]
