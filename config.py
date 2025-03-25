@@ -24,36 +24,40 @@ ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 DEFAULT_SYSTEM_PROMPT = "Jesteś pomocnym asystentem AI."
 
 AVAILABLE_MODELS = {
-    # Istniejące modele OpenAI
+    # Modele OpenAI
     "gpt-3.5-turbo": "GPT-3.5 Turbo", 
     "gpt-4": "GPT-4",
     "gpt-4o": "GPT-4o",
     "o1": "O1",
     "o3-mini": "O3-mini",
     
-    # Modele Claude
-    "claude-3-5-sonnet": "Claude 3.5 Sonnet",
-    "claude-3-5-haiku": "Claude 3.5 Haiku",
-    "claude-3-haiku": "Claude 3 Haiku",
-    "claude-3-opus": "Claude 3 Opus"
+    # Dokładne nazwy modeli Claude
+    "claude-3-7-sonnet-20250219": "Claude 3.7 Sonnet",
+    "claude-3-5-haiku-20241022": "Claude 3.5 Haiku", 
+    "claude-3-opus-20240229": "Claude 3 Opus",
+    "claude-3-5-sonnet-20241022": "Claude 3.5 Sonnet (1022)",
+    "claude-3-5-sonnet-20240620": "Claude 3.5 Sonnet (0620)",
+    "claude-3-haiku-20240307": "Claude 3 Haiku"
 }
 
 # System kredytów
 CREDIT_COSTS = {
-    # Koszty wiadomości w zależności od modelu
+    # Koszty wiadomości
     "message": {
-        # Istniejące modele
+        # Modele OpenAI
         "gpt-3.5-turbo": 1,
         "gpt-4": 5,
         "gpt-4o": 3,
         "o1": 8,
         "o3-mini": 1,
         
-        # Modele Claude - ustalamy koszty proporcjonalne do cen z tabeli
-        "claude-3-5-sonnet": 2,  # $3/MTok, tańszy niż GPT-4 ale droższy niż GPT-3.5
-        "claude-3-5-haiku": 1,   # $0.80/MTok, podobnie do GPT-3.5
-        "claude-3-haiku": 1,     # $0.25/MTok, najtańszy
-        "claude-3-opus": 10,     # $15/MTok, najdroższy model
+        # Modele Claude z aktualnymi nazwami
+        "claude-3-7-sonnet-20250219": 10,  # Najnowszy model
+        "claude-3-5-haiku-20241022": 1,    # Szybki model
+        "claude-3-opus-20240229": 10,      # Najdroższy model
+        "claude-3-5-sonnet-20241022": 3,
+        "claude-3-5-sonnet-20240620": 3,
+        "claude-3-haiku-20240307": 1,
         
         "default": 1
     },

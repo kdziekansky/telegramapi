@@ -60,8 +60,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     credits = get_user_credits(user_id)
     
     # Sprawdź, czy użytkownik ma wystarczającą liczbę kredytów
-    if not check_user_credits(user_id, credit_cost):
-        # Enhanced credit warning with visual indicators
+    if not await check_user_credits(user_id, credit_cost):
         warning_message = create_header("Niewystarczające kredyty", "warning")
         warning_message += (
             f"Nie masz wystarczającej liczby kredytów, aby wysłać wiadomość.\n\n"

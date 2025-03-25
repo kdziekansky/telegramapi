@@ -321,8 +321,11 @@ async def handle_model_selection(update: Update, context: ContextTypes.DEFAULT_T
     # Grupowanie modeli według kategorii i dostawcy
     standard_openai_models = ["gpt-3.5-turbo", "o3-mini"]
     premium_openai_models = ["gpt-4o", "gpt-4", "o1"]
-    standard_claude_models = ["claude-3-5-haiku", "claude-3-haiku"]
-    premium_claude_models = ["claude-3-5-sonnet", "claude-3-opus"]
+    
+    # Zaktualizowane nazwy modeli Claude
+    standard_claude_models = ["claude-3-5-haiku-20241022", "claude-3-haiku-20240307"]
+    premium_claude_models = ["claude-3-7-sonnet-20250219", "claude-3-opus-20240229", 
+                           "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-20240620"]
     
     # OpenAI - Modele standardowe
     message_text += "\n\n*🤖 OpenAI - Modele standardowe:*"

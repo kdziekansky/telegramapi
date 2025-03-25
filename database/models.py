@@ -13,9 +13,11 @@ class User:
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     language_code: Optional[str] = None
+    language: Optional[str] = None
     subscription_end_date: Optional[datetime] = None
     is_active: bool = True
     created_at: Optional[datetime] = None
+    messages_used: int = 0  # Dodane pole messages_used
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'User':

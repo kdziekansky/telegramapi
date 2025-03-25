@@ -16,23 +16,51 @@ async def chat_completion_stream(messages, model=None):
     """
     Funkcja dla kompatybilności wstecznej zwracająca asynchroniczny generator
     """
-    # Bezpośrednia implementacja generatora aby obejść problemy z korutynami
     try:
-        from openai import AsyncOpenAI
+        # Zaktualizowana lista modeli Claude
+        claude_models = [
+            "claude-3-5-sonnet-20240307", 
+            "claude-3-haiku-20240307", 
+            "claude-3-sonnet-20240229", 
+            "claude-3-opus-20240229"
+        ]
         
-        # Bezpośrednie utworzenie klienta OpenAI
-        from config import OPENAI_API_KEY
-        client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        # Sprawdź czy stare nazwy modeli Claude i mapuj je na nowe
+        claude_model_mapping = {
+            "claude-3-5-sonnet": "claude-3-5-sonnet-20240307",
+            "claude-3-5-haiku": "claude-3-haiku-20240307", 
+            "claude-3-haiku": "claude-3-haiku-20240307",
+            "claude-3-sonnet": "claude-3-sonnet-20240229",
+            "claude-3-opus": "claude-3-opus-20240229"
+        }
         
-        response = await client.chat.completions.create(
-            model=model or "gpt-4o",
-            messages=messages,
-            stream=True
-        )
+        # Automatycznie koryguj stare nazwy modeli
+        if model in claude_model_mapping:
+            logger.info(f"Konwersja nazwy modelu z {model} na {claude_model_mapping[model]}")
+            model = claude_model_mapping[model]
         
-        async for chunk in response:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        if model in claude_models:
+            logger.info(f"Używam API Anthropic dla modelu {model}")
+            # Użyj API service do obsługi modelu Claude
+            async for chunk in api_service.chat_completion_stream(messages, model):
+                yield chunk
+        else:
+            # Bezpośrednie utworzenie klienta OpenAI dla modeli OpenAI
+            logger.info(f"Używam bezpośrednio API OpenAI dla modelu {model or 'gpt-4o'}")
+            from openai import AsyncOpenAI
+            
+            from config import OPENAI_API_KEY
+            client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+            
+            response = await client.chat.completions.create(
+                model=model or "gpt-4o",
+                messages=messages,
+                stream=True
+            )
+            
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
     except Exception as e:
         logger.error(f"Błąd w chat_completion_stream: {e}")
         yield "Wystąpił błąd podczas generowania odpowiedzi."

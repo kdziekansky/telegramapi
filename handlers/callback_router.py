@@ -172,6 +172,8 @@ async def route_model_selection_callback(update: Update, context: ContextTypes.D
         language = get_user_language(context, user_id)
         model_id = query.data[6:]  # Remove 'model_' prefix
         
+        logger.info(f"Wybrano model: {model_id}")
+        
         # Save model in context
         if 'user_data' not in context.chat_data:
             context.chat_data['user_data'] = {}

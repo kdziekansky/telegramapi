@@ -19,25 +19,37 @@ class AnthropicClient(APIClient):
         self.client = AsyncAnthropic(api_key=api_key)
         logger.info(f"Klient Anthropic zainicjalizowany z kluczem API: {'ważny' if api_key else 'brak'}")
     
-    async def chat_completion(self, messages: List[Dict[str, str]], model: str = "claude-3-5-sonnet", stream: bool = False, **kwargs) -> Any:
+    async def chat_completion(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", stream: bool = False, **kwargs) -> Any:
         """Generuje odpowiedź czatu z API Anthropic"""
         try:
+            # Dodajemy logowanie dla lepszego debugowania
+            logger.info(f"Anthropic API: Używam modelu {model}, stream={stream}")
+            
+            # Wyodrębnij wiadomość systemową
+            system_prompt = None
+            user_messages = messages.copy()
+            
+            if messages and messages[0]['role'] == 'system':
+                system_prompt = messages[0]['content']
+                user_messages = messages[1:]
+            
             # Konwersja formatu wiadomości z OpenAI na format Anthropic
-            anthropic_messages = self._convert_to_anthropic_format(messages)
+            anthropic_messages = self._convert_to_anthropic_format(user_messages)
             
             # Wysyłanie zapytania
             return await self._request_with_retry(
                 self._make_anthropic_request,
                 model=model,
                 messages=anthropic_messages,
+                system=system_prompt,
                 stream=stream,
                 **kwargs
             )
         except Exception as e:
-            logger.error(f"Błąd API Anthropic: {str(e)}")
+            logger.error(f"Błąd API Anthropic: {str(e)}", exc_info=True)
             raise
     
-    async def _make_anthropic_request(self, model: str, messages: List[Dict], stream: bool = False, **kwargs):
+    async def _make_anthropic_request(self, model: str, messages: List[Dict], system=None, stream: bool = False, **kwargs):
         """Wykonuje właściwe zapytanie do API Anthropic"""
         max_tokens = kwargs.pop('max_tokens', 4096)
         temperature = kwargs.pop('temperature', 0.7)
@@ -46,6 +58,7 @@ class AnthropicClient(APIClient):
             response = await self.client.messages.create(
                 model=model,
                 messages=messages,
+                system=system,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stream=True,
@@ -56,6 +69,7 @@ class AnthropicClient(APIClient):
             response = await self.client.messages.create(
                 model=model,
                 messages=messages,
+                system=system,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 **kwargs
@@ -66,13 +80,7 @@ class AnthropicClient(APIClient):
         """Konwertuje format wiadomości OpenAI na format Anthropic"""
         anthropic_messages = []
         
-        # Pomijamy pierwszą wiadomość systemową - obsługujemy ją osobno
-        system_message = None
-        if openai_messages and openai_messages[0]['role'] == 'system':
-            system_message = openai_messages[0]['content']
-            openai_messages = openai_messages[1:]
-        
-        # Konwertuj pozostałe wiadomości
+        # Konwertuj wiadomości
         for msg in openai_messages:
             role = "user" if msg['role'] == 'user' else "assistant"
             anthropic_messages.append({
@@ -82,45 +90,59 @@ class AnthropicClient(APIClient):
         
         return anthropic_messages
     
-    async def chat_completion_text(self, messages: List[Dict[str, str]], model: str = "claude-3-5-sonnet", **kwargs) -> str:
+    async def chat_completion_text(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", **kwargs) -> str:
         """Generuje odpowiedź czatu i zwraca tekst"""
         system_prompt = None
+        user_messages = messages.copy()
+        
         if messages and messages[0]['role'] == 'system':
             system_prompt = messages[0]['content']
-            messages = messages[1:]
+            user_messages = messages[1:]
             
-        anthropic_messages = self._convert_to_anthropic_format(messages)
+        anthropic_messages = self._convert_to_anthropic_format(user_messages)
         
-        response = await self.client.messages.create(
-            model=model,
-            messages=anthropic_messages,
-            system=system_prompt,
-            max_tokens=kwargs.pop('max_tokens', 4096),
-            temperature=kwargs.pop('temperature', 0.7),
-            **kwargs
-        )
-        
-        return response.content[0].text
+        try:
+            logger.info(f"Anthropic API text: Używam modelu {model}")
+            response = await self.client.messages.create(
+                model=model,
+                messages=anthropic_messages,
+                system=system_prompt,
+                max_tokens=kwargs.pop('max_tokens', 4096),
+                temperature=kwargs.pop('temperature', 0.7),
+                **kwargs
+            )
+            
+            return response.content[0].text
+        except Exception as e:
+            logger.error(f"Błąd w chat_completion_text: {e}", exc_info=True)
+            return f"Wystąpił błąd: {str(e)}"
     
-    async def chat_completion_stream(self, messages: List[Dict[str, str]], model: str = "claude-3-5-sonnet", **kwargs) -> AsyncGenerator[str, None]:
+    async def chat_completion_stream(self, messages: List[Dict[str, str]], model: str = "claude-3-7-sonnet-20250219", **kwargs) -> AsyncGenerator[str, None]:
         """Generuje strumieniową odpowiedź czatu"""
         system_prompt = None
+        user_messages = messages.copy()
+        
         if messages and messages[0]['role'] == 'system':
             system_prompt = messages[0]['content']
-            messages = messages[1:]
+            user_messages = messages[1:]
             
-        anthropic_messages = self._convert_to_anthropic_format(messages)
+        anthropic_messages = self._convert_to_anthropic_format(user_messages)
         
-        stream = await self.client.messages.create(
-            model=model,
-            messages=anthropic_messages,
-            system=system_prompt,
-            max_tokens=kwargs.pop('max_tokens', 4096),
-            temperature=kwargs.pop('temperature', 0.7),
-            stream=True,
-            **kwargs
-        )
-        
-        async for chunk in stream:
-            if chunk.delta.text:
-                yield chunk.delta.text
+        try:
+            logger.info(f"Anthropic API stream: Używam modelu {model}")
+            stream = await self.client.messages.create(
+                model=model,
+                messages=anthropic_messages,
+                system=system_prompt,
+                max_tokens=kwargs.pop('max_tokens', 4096),
+                temperature=kwargs.pop('temperature', 0.7),
+                stream=True,
+                **kwargs
+            )
+            
+            async for chunk in stream:
+                if chunk.delta and chunk.delta.text:
+                    yield chunk.delta.text
+        except Exception as e:
+            logger.error(f"Błąd w chat_completion_stream: {e}", exc_info=True)
+            yield f"Wystąpił błąd podczas generowania odpowiedzi: {str(e)}"
