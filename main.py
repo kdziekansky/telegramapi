@@ -47,7 +47,7 @@ HTTPXRequest._build_client = patched_build_client
 # Import handlerów komend
 from handlers.start_handler import start_command, language_command
 from handlers.help_handler import help_command
-from handlers.basic_commands import restart_command, check_status, new_chat
+from handlers.basic_commands import restart_command, check_status, new_chat, models_command
 from handlers.mode_handler import show_modes
 from handlers.export_handler import export_conversation
 from handlers.credit_handler import credits_command, buy_command, credit_stats_command
@@ -88,6 +88,7 @@ application.add_handler(CommandHandler("payment", payment_command))
 application.add_handler(CommandHandler("subscription", subscription_command))
 application.add_handler(CommandHandler("transactions", transactions_command))
 application.add_handler(CommandHandler("code", code_command))
+application.add_handler(CommandHandler("models", models_command))
 
 # Handlery dla administratorów
 application.add_handler(CommandHandler("addpackage", add_package))

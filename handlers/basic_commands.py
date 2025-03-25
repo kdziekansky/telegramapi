@@ -16,10 +16,8 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         
-        # Resetowanie konwersacji - tworzymy nową konwersację i czyścimy kontekst
         conversation = create_new_conversation(user_id)
         
-        # Zachowujemy wybrane ustawienia użytkownika (język, model)
         user_data = {}
         if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
             # Pobieramy tylko podstawowe ustawienia, reszta jest resetowana
@@ -31,18 +29,14 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if 'current_mode' in old_user_data:
                 user_data['current_mode'] = old_user_data['current_mode']
         
-        # Resetujemy dane użytkownika w kontekście i ustawiamy tylko zachowane ustawienia
         if 'user_data' not in context.chat_data:
             context.chat_data['user_data'] = {}
         context.chat_data['user_data'][user_id] = user_data
         
-        # Pobierz język użytkownika
         language = get_user_language(context, user_id)
         
-        # Wyślij potwierdzenie restartu
         restart_message = get_text("restart_command", language)
         
-        # Utwórz klawiaturę menu
         keyboard = [
             [
                 InlineKeyboardButton(get_text("menu_chat_mode", language), callback_data="menu_section_chat_modes"),
@@ -60,9 +54,7 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        # Wyślij wiadomość z menu
         try:
-            # Używamy welcome_message zamiast main_menu + status
             welcome_text = get_text("welcome_message", language, bot_name=BOT_NAME)
             message = await context.bot.send_message(
                 chat_id=chat_id,
@@ -71,12 +63,10 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=ParseMode.MARKDOWN
             )
             
-            # Zapisz ID wiadomości menu i stan menu
             from handlers.menu_handler import store_menu_state
             store_menu_state(context, user_id, 'main', message.message_id)
         except Exception as e:
             print(f"Błąd przy wysyłaniu wiadomości po restarcie: {e}")
-            # Próbuj wysłać prostą wiadomość
             try:
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -91,13 +81,70 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         traceback.print_exc()
         
         try:
-            # Używamy context.bot.send_message zamiast update.message.reply_text
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=get_text("restart_error", get_user_language(context, update.effective_user.id))
             )
         except Exception as e2:
             print(f"Błąd przy wysyłaniu wiadomości o błędzie: {e2}")
+
+async def models_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Obsługuje komendę /models - otwiera menu wyboru modelu AI"""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram.constants import ParseMode
+    from config import AVAILABLE_MODELS, CREDIT_COSTS
+    from utils.translations import get_text
+    from utils.user_utils import get_user_language
+    from utils.menu import store_menu_state, get_navigation_path
+    
+    user_id = update.effective_user.id
+    language = get_user_language(context, user_id)
+    
+    message_text = f"*{get_navigation_path('settings', language)} > {get_text('settings_choose_model', language)}*\n\n"
+    message_text += get_text("settings_choose_model", language, default="Wybierz model AI:")
+    
+    standard_openai_models = ["gpt-3.5-turbo", "o3-mini"]
+    premium_openai_models = ["gpt-4o", "gpt-4", "o1"]
+    standard_claude_models = ["claude-3-5-haiku-20241022", "claude-3-haiku-20240307"]
+    premium_claude_models = ["claude-3-7-sonnet-20250219", "claude-3-opus-20240229", 
+                           "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-20240620"]
+    
+    message_text += "\n\n*🤖 OpenAI - Modele standardowe:*"
+    message_text += "\n\n*🤖 OpenAI - Modele premium:*"
+    message_text += "\n\n*🤖 Claude - Modele standardowe:*"
+    message_text += "\n\n*🤖 Claude - Modele premium:*"
+    
+    buttons = []
+    
+    def add_model_buttons(model_ids, is_premium=False):
+        for model_id in model_ids:
+            if model_id in AVAILABLE_MODELS:
+                model_name = AVAILABLE_MODELS[model_id]
+                credit_cost = CREDIT_COSTS["message"].get(model_id, CREDIT_COSTS["message"]["default"])
+                prefix = "⭐ " if is_premium else ""
+                buttons.append([
+                    InlineKeyboardButton(
+                        f"{prefix}{model_name} ({credit_cost} {get_text('credits_per_message', language)})",
+                        callback_data=f"model_{model_id}"
+                    )
+                ])
+    
+    add_model_buttons(standard_openai_models)
+    add_model_buttons(premium_openai_models, is_premium=True)
+    add_model_buttons(standard_claude_models)
+    add_model_buttons(premium_claude_models, is_premium=True)
+    
+    buttons.append([InlineKeyboardButton(get_text("back", language), callback_data="menu_section_settings")])
+    
+    reply_markup = InlineKeyboardMarkup(buttons)
+    
+    message = await update.message.reply_text(
+        message_text,
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    store_menu_state(context, user_id, 'model_selection', message.message_id)
 
 async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -107,10 +154,8 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     language = get_user_language(context, user_id)
     
-    # Pobierz status kredytów
     credits = get_user_credits(user_id)
     
-    # Pobranie aktualnego trybu czatu
     from config import CHAT_MODES, BOT_NAME
     current_mode = get_text("no_mode", language)
     current_mode_cost = 1
@@ -121,7 +166,6 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_mode = get_text(f"chat_mode_{mode_id}", language, default=CHAT_MODES[mode_id]["name"])
             current_mode_cost = CHAT_MODES[mode_id]["credit_cost"]
     
-    # Pobierz aktualny model
     from config import DEFAULT_MODEL, AVAILABLE_MODELS
     current_model = DEFAULT_MODEL
     if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
@@ -131,10 +175,8 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     model_name = AVAILABLE_MODELS.get(current_model, "Unknown Model")
     
-    # Pobierz status wiadomości - dodajemy await
     message_status = await get_message_status(user_id)
     
-    # Stwórz wiadomość o statusie, używając tłumaczeń
     message = f"""
 *{get_text("status_command", language, bot_name=BOT_NAME)}*
 
@@ -158,7 +200,6 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 {get_text("buy_more_credits", language)}: /buy
 """
     
-    # Dodaj przyciski menu dla łatwiejszej nawigacji
     keyboard = [
         [InlineKeyboardButton(get_text("buy_credits_btn", language), callback_data="menu_credits_buy")],
         [InlineKeyboardButton("⬅️ " + get_text("back_to_main_menu", language, default="Powrót do menu głównego"), callback_data="menu_back_main")]
@@ -169,7 +210,6 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
     except Exception as e:
         print(f"Błąd formatowania w check_status: {e}")
-        # Próba wysłania bez formatowania
         await update.message.reply_text(message, reply_markup=reply_markup)
 
 async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -177,42 +217,32 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     language = get_user_language(context, user_id)
     
-    # Utwórz nową konwersację
-    # Dodane await przed create_new_conversation
     conversation = await create_new_conversation(user_id)
     
     if conversation:
-        # Oznacz czat jako zainicjowany
         mark_chat_initialized(context, user_id)
         
-        # Determine current mode and cost
         from config import DEFAULT_MODEL, AVAILABLE_MODELS, CHAT_MODES, CREDIT_COSTS
         
-        # Default values
         current_mode = "no_mode"
         model_to_use = DEFAULT_MODEL
         credit_cost = CREDIT_COSTS["message"].get(model_to_use, 1)
         
-        # Get user's selected mode if available
         if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
             user_data = context.chat_data['user_data'][user_id]
             
-            # Check for current mode
             if 'current_mode' in user_data and user_data['current_mode'] in CHAT_MODES:
                 current_mode = user_data['current_mode']
                 model_to_use = CHAT_MODES[current_mode].get("model", DEFAULT_MODEL)
                 credit_cost = CHAT_MODES[current_mode]["credit_cost"]
             
-            # Check for current model (overrides mode's model)
             if 'current_model' in user_data and user_data['current_model'] in AVAILABLE_MODELS:
                 model_to_use = user_data['current_model']
                 credit_cost = CREDIT_COSTS["message"].get(model_to_use, CREDIT_COSTS["message"]["default"])
         
-        # Get friendly model name
         model_name = AVAILABLE_MODELS.get(model_to_use, model_to_use)
         
-        # Create new chat message with model info
-        base_message = "✅ Utworzono nową rozmowę. Możesz zacząć pisać! "  # Ujednolicony komunikat
+        base_message = "✅ Utworzono nową rozmowę. Możesz zacząć pisać! "
         model_info = f"Używasz modelu {model_name} za {credit_cost} kredyt(ów) za wiadomość"
         
         keyboard = [
