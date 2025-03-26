@@ -345,7 +345,7 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
                 message += f"▪️ {get_text('average_daily_usage', language)}: *{int(stats.get('avg_daily_usage', 0))}* {get_text('credits', language)}\n\n"
                 
                 if stats.get('usage_history'):
-                    message += f"*{get_text('transaction_history', language, default='Historia transakcji')} ({get_text('last_5', language, default='ostatnie 5'}):*\n"
+                    message += f"*{get_text('transaction_history', language, default='Historia transakcji')} ({get_text('last_5', language, default='ostatnie 5')}):*\n"
                     
                     for i, transaction in enumerate(stats['usage_history'][:5]):
                         date = transaction.get('date', '')
@@ -416,7 +416,48 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(
             get_text("stats_generation_error", language, default="Wystąpił błąd podczas generowania statystyk. Spróbuj ponownie później.")
         )
+
+async def freecredits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Dodaje 100 darmowych kredytów nowemu użytkownikowi (jednorazowo)
+    Użycie: /freecredits
+    """
+    user_id = update.effective_user.id
+    language = get_user_language(context, user_id)
+    
+    # Sprawdzamy czy użytkownik już miał wcześniej darmowe kredyty
+    # używając get_user_credit_stats zamiast get_credit_transactions
+    stats = await get_user_credit_stats(user_id)
+    
+    if stats and stats.get('usage_history'):
+        for transaction in stats.get('usage_history', []):
+            if transaction.get('description') == "Free credits promotion":
+                message = create_header("Promocja wykorzystana", "info")
+                message += get_text("free_credits_already_used", language, 
+                                  default="Już wykorzystałeś promocję darmowych kredytów.")
+                await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+                return
+    
+    # Jeśli użytkownik nie wykorzystał jeszcze promocji, dodaj kredyty
+    credits_added = 100
+    success = await add_user_credits(user_id, credits_added, "Free credits promotion")
+    
+    if success:
+        # Pobierz aktualny stan kredytów
+        credits = get_user_credits(user_id)
         
+        message = create_header("Darmowe kredyty dodane!", "success")
+        message += get_text("free_credits_added", language, 
+                          credits=credits_added, total=credits,
+                          default=f"Dodano {credits_added} darmowych kredytów do Twojego konta!\n\nAktualne saldo: {credits} kredytów.")
+        
+        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+    else:
+        message = create_header("Błąd", "error")
+        message += get_text("free_credits_error", language, 
+                          default="Wystąpił błąd podczas dodawania darmowych kredytów. Spróbuj ponownie później.")
+        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+
 async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display credit usage analysis"""
     user_id = update.effective_user.id
