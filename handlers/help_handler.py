@@ -4,6 +4,8 @@ from telegram.constants import ParseMode
 from utils.translations import get_text
 from utils.user_utils import get_user_language
 from utils.menu import store_menu_state
+from database.credits_client import get_user_credits
+from config import BOT_NAME
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -33,8 +35,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Utwórz klawiaturę
     reply_markup = InlineKeyboardMarkup(buttons)
     
-    # Przygotuj tekst pomocy bez znaczników Markdown
-    help_title = "Pomoc i informacje"
+    # Przygotuj tekst pomocy
+    help_title = get_text("help_and_info", language, default="Pomoc i informacje")
     message_text = f"{help_title}\n\n{get_text('help_options', language, default='Wybierz jedną z opcji poniżej:')}"
     
     try:
@@ -46,7 +48,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         # W przypadku błędu wyślij prostszą wiadomość
         message = await update.message.reply_text(
-            "Pomoc i informacje\n\nWybierz jedną z opcji poniżej:",
+            get_text("help_and_info", language, default="Pomoc i informacje") + "\n\n" + 
+            get_text("select_option_below", language, default="Wybierz jedną z opcji poniżej:"),
             reply_markup=reply_markup
         )
     
@@ -65,7 +68,7 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     credits = get_user_credits(user_id)
     
     # Pobranie aktualnego trybu czatu
-    from config import CHAT_MODES
+    from config import CHAT_MODES, BOT_NAME
     current_mode = get_text("no_mode", language)
     current_mode_cost = 1
     if 'user_data' in context.chat_data and user_id in context.chat_data['user_data']:
@@ -83,10 +86,10 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'current_model' in user_data and user_data['current_model'] in AVAILABLE_MODELS:
             current_model = user_data['current_model']
     
-    model_name = AVAILABLE_MODELS.get(current_model, "Unknown Model")
+    model_name = AVAILABLE_MODELS.get(current_model, get_text("unknown_model", language))
     
-    # Pobierz status wiadomości
-    message_status = get_message_status(user_id)
+    from database.supabase_client import get_message_status
+    message_status = await get_message_status(user_id)
     
     # Stwórz wiadomość o statusie, używając tłumaczeń
     message = f"""
@@ -122,6 +125,6 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
     except Exception as e:
-        print(f"Błąd formatowania w check_status: {e}")
+        print(f"{get_text('format_error', language, default='Błąd formatowania')} in check_status: {e}")
         # Próba wysłania bez formatowania
         await update.message.reply_text(message, reply_markup=reply_markup)

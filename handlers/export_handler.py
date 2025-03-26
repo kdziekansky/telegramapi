@@ -6,7 +6,7 @@ from database.supabase_client import get_active_conversation, get_conversation_h
 from utils.pdf_generator import generate_conversation_pdf
 from config import BOT_NAME
 from utils.translations import get_text
-from handlers.menu_handler import get_user_language
+from utils.user_utils import get_user_language
 import io
 
 async def export_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -36,7 +36,6 @@ async def export_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
         
         # Naprawiony sposób pobrania danych użytkownika
-        # Zamiast get_or_create_user użyjemy bezpośrednio Supabase
         user_info = {}
         try:
             from database.supabase_client import supabase
@@ -44,14 +43,14 @@ async def export_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
             if response.data:
                 user_info = response.data[0]
         except Exception as e:
-            print(f"Błąd pobierania danych użytkownika: {e}")
+            print(f"{get_text('user_data_error', language, default='Błąd pobierania danych użytkownika')}: {e}")
         
         # Generuj PDF
         pdf_buffer = generate_conversation_pdf(history, user_info, BOT_NAME)
         
         from datetime import datetime
         current_date = datetime.now().strftime("%Y-%m-%d")
-        file_name = f"Konwersacja_{BOT_NAME}_{current_date}.pdf"
+        file_name = f"{get_text('conversation_with', language, bot_name=BOT_NAME, default='Konwersacja')}_{current_date}.pdf"
         
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
@@ -63,7 +62,7 @@ async def export_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
         await status_message.delete()
         
     except Exception as e:
-        print(f"Błąd podczas generowania PDF: {e}")
+        print(f"{get_text('pdf_generation_error', language, default='Błąd podczas generowania PDF')}: {e}")
         import traceback
         traceback.print_exc()
         await status_message.edit_text(

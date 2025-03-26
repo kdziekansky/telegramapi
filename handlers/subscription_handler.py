@@ -17,7 +17,7 @@ async def activate_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Sprawdź, czy podano klucz licencyjny
     if not context.args or len(context.args) < 1:
-        await update.message.reply_text("Użycie: /activate [klucz_licencyjny]")
+        await update.message.reply_text(get_text("license_key_usage", language, default="Użycie: /activate [klucz_licencyjny]"))
         return
     
     license_key = context.args[0]
@@ -28,13 +28,11 @@ async def activate_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if success and end_date:
         formatted_date = end_date.strftime('%d.%m.%Y %H:%M')
         # Użyj get_text zamiast stałej
-        message = get_text("license_activated", language, end_date=formatted_date, 
-                          default="✅ Licencja została aktywowana pomyślnie!\nData wygaśnięcia: *{end_date}*")
+        message = get_text("license_activated", language, end_date=formatted_date)
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
     else:
         # Użyj get_text zamiast stałej
-        await update.message.reply_text(get_text("invalid_license", language, 
-                                        default="❌ Nieprawidłowy klucz licencyjny. Sprawdź klucz i spróbuj ponownie."))
+        await update.message.reply_text(get_text("invalid_license", language))
 
 async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -49,9 +47,8 @@ async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE)
         end_date = get_subscription_end_date(user_id)
         formatted_date = end_date.strftime('%d.%m.%Y %H:%M')
         
-        message = f"Twoja subskrypcja jest aktywna.\nData wygaśnięcia: *{formatted_date}*"
+        message = get_text("subscription_active_message", language, end_date=formatted_date, default=f"Twoja subskrypcja jest aktywna.\nData wygaśnięcia: *{formatted_date}*")
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
     else:
         # Użyj get_text zamiast stałej
-        await update.message.reply_text(get_text("subscription_expired", language, 
-                                        default="⚠️ Twoja subskrypcja wygasła. Aby kontynuować korzystanie z bota, kup nowy pakiet lub aktywuj kod promocyjny."))
+        await update.message.reply_text(get_text("subscription_expired", language))

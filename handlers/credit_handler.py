@@ -12,7 +12,7 @@ from utils.translations import get_text
 from database.credits_client import (
     get_user_credits, add_user_credits, deduct_user_credits, 
     get_credit_packages, get_package_by_id, purchase_credits,
-    get_user_credit_stats, 
+    get_user_credit_stats
 )
 from utils.credit_analytics import (
     generate_credit_usage_chart, generate_usage_breakdown_chart, 
@@ -29,38 +29,38 @@ async def credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     language = get_user_language(context, user_id)
     credits = get_user_credits(user_id)
     message = f"*{get_text('credit_status_title', language, default='Stan kredytów')}*\n\n"
-    message += f"{get_text('available_credits', language, default='Dostępne kredyty')}: *{credits}*\n\n"
+    message += f"{get_text('available_credits', language)}: *{credits}*\n\n"
     
     try:
         from database.credits_client import get_user_credit_stats
         stats = get_user_credit_stats(user_id)
         
         if stats:
-            message += f"*Statystyki:*\n"
-            message += f"▪️ Łącznie zakupiono: {stats.get('total_purchased', 0)} kredytów\n"
-            message += f"▪️ Średnie dzienne zużycie: {int(stats.get('avg_daily_usage', 0))} kredytów\n"
+            message += f"*{get_text('statistics', language, default='Statystyki')}:*\n"
+            message += f"▪️ {get_text('total_purchased', language)}: {stats.get('total_purchased', 0)} {get_text('credits', language)}\n"
+            message += f"▪️ {get_text('average_daily_usage', language, default='Średnie dzienne zużycie')}: {int(stats.get('avg_daily_usage', 0))} {get_text('credits', language)}\n"
             
             if stats.get('most_expensive_operation'):
-                message += f"▪️ Najdroższa operacja: {stats.get('most_expensive_operation')}\n"
+                message += f"▪️ {get_text('most_expensive_operation', language, default='Najdroższa operacja')}: {stats.get('most_expensive_operation')}\n"
     except Exception as e:
-        print(f"Błąd przy pobieraniu statystyk: {e}")
+        print(f"{get_text('stats_error', language, default='Błąd przy pobieraniu statystyk')}: {e}")
     
-    message += f"\n*Koszty operacji:*\n"
-    message += f"▪️ Wiadomość standardowa (GPT-3.5): 1 kredyt\n"
-    message += f"▪️ Wiadomość premium (GPT-4o): 3 kredyty\n"
-    message += f"▪️ Wiadomość ekspercka (GPT-4): 5 kredytów\n"
-    message += f"▪️ Generowanie obrazu: 10-15 kredytów\n"
-    message += f"▪️ Analiza dokumentu: 5 kredytów\n"
-    message += f"▪️ Analiza zdjęcia: 8 kredytów\n\n"
+    message += f"\n*{get_text('operation_costs', language)}:*\n"
+    message += f"▪️ {get_text('standard_message', language)} (GPT-3.5): 1 {get_text('credit', language)}\n"
+    message += f"▪️ {get_text('premium_message', language)} (GPT-4o): 3 {get_text('credits', language)}\n"
+    message += f"▪️ {get_text('expert_message', language)} (GPT-4): 5 {get_text('credits', language)}\n"
+    message += f"▪️ {get_text('dalle_image', language)}: 10-15 {get_text('credits', language)}\n"
+    message += f"▪️ {get_text('document_analysis', language)}: 5 {get_text('credits', language)}\n"
+    message += f"▪️ {get_text('photo_analysis', language)}: 8 {get_text('credits', language)}\n\n"
     
     keyboard = [
-        [InlineKeyboardButton("💳 Kup kredyty", callback_data="menu_credits_buy")],
+        [InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language), callback_data="menu_credits_buy")],
         [
-            InlineKeyboardButton("💰 Metody płatności", callback_data="payment_command"),
-            InlineKeyboardButton("🔄 Subskrypcje", callback_data="subscription_command")
+            InlineKeyboardButton("💰 " + get_text("payment_methods", language, default="Metody płatności"), callback_data="payment_command"),
+            InlineKeyboardButton("🔄 " + get_text("subscription_manage", language, default="Subskrypcje"), callback_data="subscription_command")
         ],
-        [InlineKeyboardButton("📜 Historia transakcji", callback_data="transactions_command")],
-        [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_back_main")]
+        [InlineKeyboardButton("📜 " + get_text("transaction_history", language, default="Historia transakcji"), callback_data="transactions_command")],
+        [InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -72,7 +72,7 @@ async def credits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
     except Exception as e:
-        print(f"Błąd przy wysyłaniu wiadomości z kredytami: {e}")
+        print(f"{get_text('message_error', language, default='Błąd przy wysyłaniu wiadomości z kredytami')}: {e}")
         await update.message.reply_text(
             message.replace("*", ""),
             reply_markup=reply_markup
@@ -83,23 +83,23 @@ async def buy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     language = get_user_language(context, user_id)
     
-    message = create_header("Zakup kredytów", "credits")
+    message = create_header(get_text("buy_credits_title", language, default="Zakup kredytów"), "credits")
     
     message += (
-        "Wybierz jedną z dostępnych metod płatności, aby kupić pakiet kredytów. "
+        get_text("buy_credits_info", language, default="Wybierz jedną z dostępnych metod płatności, aby kupić pakiet kredytów. "
         "Kredyty są używane do wszystkich operacji w bocie, takich jak:\n\n"
         "▪️ Rozmowy z różnymi modelami AI\n"
         "▪️ Generowanie obrazów\n"
         "▪️ Analizowanie dokumentów i zdjęć\n"
         "▪️ Tłumaczenie tekstów\n\n"
-        "Dostępne są różne metody płatności."
+        "Dostępne są różne metody płatności.")
     )
     
-    message += "\n\n" + create_section("Korzyści z subskrypcji", 
-        "▪️ Automatyczne odnowienie kredytów co miesiąc\n"
-        "▪️ Niższy koszt kredytów\n"
-        "▪️ Priorytetowa obsługa\n"
-        "▪️ Dodatkowe funkcje premium")
+    message += "\n\n" + create_section(get_text("subscription_benefits", language, default="Korzyści z subskrypcji"), 
+        "▪️ " + get_text("auto_renewal", language, default="Automatyczne odnowienie kredytów co miesiąc") + "\n"
+        "▪️ " + get_text("lower_cost", language, default="Niższy koszt kredytów") + "\n"
+        "▪️ " + get_text("priority_service", language, default="Priorytetowa obsługa") + "\n"
+        "▪️ " + get_text("premium_features", language, default="Dodatkowe funkcje premium"))
     
     keyboard = [
         [
@@ -107,7 +107,7 @@ async def buy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🔄 " + get_text("subscription", language, default="Subskrypcja"), callback_data="payment_method_stripe_subscription")
         ],
         [
-            InlineKeyboardButton("⬅️ " + get_text("back", language, default="Powrót"), callback_data="menu_back_main")
+            InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -174,7 +174,7 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
                     parse_mode=ParseMode.MARKDOWN
                 )
         except Exception as e:
-            print(f"Error updating message: {e}")
+            print(f"{get_text('message_update_error', language, default='Error updating message')}: {e}")
             try:
                 plain_message = message.replace("*", "")
                 if hasattr(query.message, 'caption'):
@@ -188,7 +188,7 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
                         reply_markup=reply_markup
                     )
             except Exception as e2:
-                print(f"Second error updating message: {e2}")
+                print(f"{get_text('second_message_update_error', language, default='Second error updating message')}: {e2}")
         return True
     
     if query.data == "credits_buy" or query.data == "menu_credits_buy" or query.data == "Kup":
@@ -207,19 +207,19 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
             return True
             
         except Exception as e:
-            print(f"Błąd przy przekierowaniu do zakupu kredytów: {e}")
+            print(f"{get_text('buy_credits_redirect_error', language, default='Błąd przy przekierowaniu do zakupu kredytów')}: {e}")
             import traceback
             traceback.print_exc()
             
             try:
-                keyboard = [[InlineKeyboardButton("⬅️ Menu główne", callback_data="menu_back_main")]]
+                keyboard = [[InlineKeyboardButton("⬅️ " + get_text("main_menu", language, default="Menu główne"), callback_data="menu_back_main")]]
                 await context.bot.send_message(
                     chat_id=query.message.chat_id,
-                    text="Wystąpił błąd. Spróbuj użyć komendy /buy",
+                    text=get_text("buy_command_error", language, default="Wystąpił błąd. Spróbuj użyć komendy /buy"),
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             except Exception as e2:
-                print(f"Błąd przy wyświetlaniu komunikatu: {e2}")
+                print(f"{get_text('message_display_error', language, default='Błąd przy wyświetlaniu komunikatu')}: {e2}")
             return True
     
     if query.data == "credits_stats" or query.data == "credit_advanced_analytics":
@@ -228,11 +228,11 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
         
         if hasattr(query.message, 'caption'):
             await query.edit_message_caption(
-                caption="⏳ Analyzing credit usage data..."
+                caption=get_text("analyzing_credit_usage", language)
             )
         else:
             await query.edit_message_text(
-                text="⏳ Analyzing credit usage data..."
+                text=get_text("analyzing_credit_usage", language)
             )
         
         days = 30
@@ -242,28 +242,28 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
         if not depletion_info:
             if hasattr(query.message, 'caption'):
                 await query.edit_message_caption(
-                    caption="You don't have enough credit usage history to perform analysis. Try again after performing several operations."
+                    caption=get_text("not_enough_credit_history", language)
                 )
             else:
                 await query.edit_message_text(
-                    text="You don't have enough credit usage history to perform analysis. Try again after performing several operations."
+                    text=get_text("not_enough_credit_history", language)
                 )
             return True
         
-        message = f"📊 *{get_text('credit_analytics', language, default='Analiza wykorzystania kredytów')}*\n\n"
+        message = f"📊 *{get_text('credit_analytics', language)}*\n\n"
         message += f"{get_text('current_balance', language)}: *{depletion_info['current_balance']}* {get_text('credits', language)}\n"
-        message += f"{get_text('average_daily_usage', language, default='Średnie dzienne zużycie')}: *{depletion_info['average_daily_usage']}* {get_text('credits', language)}\n"
+        message += f"{get_text('average_daily_usage', language)}: *{depletion_info['average_daily_usage']}* {get_text('credits', language)}\n"
         
         if depletion_info['days_left']:
-            message += f"{get_text('predicted_depletion', language, default='Przewidywane wyczerpanie kredytów')}: {get_text('in_days', language, default='za')} *{depletion_info['days_left']}* {get_text('days', language, default='dni')} "
+            message += f"{get_text('predicted_depletion', language)}: {get_text('in_days', language)} *{depletion_info['days_left']}* {get_text('days', language)} "
             message += f"({depletion_info['depletion_date']})\n\n"
         else:
-            message += f"{get_text('not_enough_data', language, default='Za mało danych, aby przewidzieć wyczerpanie kredytów.')}.\n\n"
+            message += f"{get_text('not_enough_data', language)}.\n\n"
         
         usage_breakdown = get_credit_usage_breakdown(user_id, days)
         
         if usage_breakdown:
-            message += f"*{get_text('usage_breakdown', language, default='Rozkład zużycia kredytów')}:*\n"
+            message += f"*{get_text('usage_breakdown', language)}:*\n"
             for category, amount in usage_breakdown.items():
                 percentage = amount / sum(usage_breakdown.values()) * 100
                 message += f"- {category}: *{amount}* {get_text('credits', language)} ({percentage:.1f}%)\n"
@@ -284,7 +284,7 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
             await context.bot.send_photo(
                 chat_id=query.message.chat_id,
                 photo=usage_chart,
-                caption=f"📈 {get_text('usage_history_chart', language, default=f'Historia wykorzystania kredytów z ostatnich {days} dni')}"
+                caption=f"📈 {get_text('usage_history_chart', language, days=days)}"
             )
         
         breakdown_chart = generate_usage_breakdown_chart(user_id, days)
@@ -292,7 +292,7 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
             await context.bot.send_photo(
                 chat_id=query.message.chat_id,
                 photo=breakdown_chart,
-                caption=f"📊 {get_text('usage_breakdown_chart', language, default=f'Rozkład wykorzystania kredytów z ostatnich {days} dni')}"
+                caption=f"📊 {get_text('usage_breakdown_chart', language, days=days)}"
             )
         
         keyboard = [[InlineKeyboardButton(get_text("back", language), callback_data="menu_credits_check")]]
@@ -304,7 +304,7 @@ async def handle_credit_callback(update: Update, context: ContextTypes.DEFAULT_T
             else:
                 await query.message.edit_reply_markup(reply_markup=reply_markup)
         except Exception as e:
-            print(f"Error updating keyboard: {e}")
+            print(f"{get_text('keyboard_update_error', language, default='Error updating keyboard')}: {e}")
         
         return True
     
@@ -316,14 +316,14 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
     language = get_user_language(context, user_id)
     
     loading_message = await update.message.reply_text(
-        "⏳ Analizuję dane wykorzystania kredytów..."
+        get_text("analyzing_credit_usage", language)
     )
     
     try:
         credits = get_user_credits(user_id)
         
-        message = f"*Analiza kredytów*\n\n"
-        message += f"Aktualny stan kredytów: *{credits}*\n\n"
+        message = f"*{get_text('credit_analytics', language, default='Analiza kredytów')}*\n\n"
+        message += f"{get_text('current_balance', language)}: *{credits}*\n\n"
         
         try:
             from database.credits_client import get_user_credit_stats
@@ -331,21 +331,21 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
             stats = await get_user_credit_stats(user_id)
             
             if stats:
-                last_purchase = "Brak"
+                last_purchase = get_text("none", language, default="Brak")
                 if stats.get('last_purchase'):
                     if isinstance(stats['last_purchase'], str) and 'T' in stats['last_purchase']:
                         last_purchase = stats['last_purchase'].split('T')[0]
                     else:
                         last_purchase = str(stats['last_purchase'])
                 
-                message += f"*Statystyki kredytów:*\n"
-                message += f"▪️ Łącznie zakupiono: *{stats.get('total_purchased', 0)}* kredytów\n"
-                message += f"▪️ Wydano łącznie: *{stats.get('total_spent', 0)}* PLN\n"
-                message += f"▪️ Ostatni zakup: *{last_purchase}*\n"
-                message += f"▪️ Średnie dzienne zużycie: *{int(stats.get('avg_daily_usage', 0))}* kredytów\n\n"
+                message += f"*{get_text('credit_statistics', language, default='Statystyki kredytów')}:*\n"
+                message += f"▪️ {get_text('total_purchased', language)}: *{stats.get('total_purchased', 0)}* {get_text('credits', language)}\n"
+                message += f"▪️ {get_text('total_spent', language)}: *{stats.get('total_spent', 0)}* PLN\n"
+                message += f"▪️ {get_text('last_purchase', language)}: *{last_purchase}*\n"
+                message += f"▪️ {get_text('average_daily_usage', language)}: *{int(stats.get('avg_daily_usage', 0))}* {get_text('credits', language)}\n\n"
                 
                 if stats.get('usage_history'):
-                    message += f"*Historia transakcji (ostatnie 5):*\n"
+                    message += f"*{get_text('transaction_history', language, default='Historia transakcji')} ({get_text('last_5', language, default='ostatnie 5'}):*\n"
                     
                     for i, transaction in enumerate(stats['usage_history'][:5]):
                         date = transaction.get('date', '')
@@ -357,21 +357,21 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
                         description = transaction.get('description', '')
                         
                         if transaction_type in ["add", "purchase", "subscription", "subscription_renewal"]:
-                            message += f"🟢 +{amount} kr. ({date})"
+                            message += f"🟢 +{amount} {get_text('credits_short', language, default='kr.')} ({date})"
                         else:
-                            message += f"🔴 -{amount} kr. ({date})"
+                            message += f"🔴 -{amount} {get_text('credits_short', language, default='kr.')} ({date})"
                             
                         if description:
                             message += f" - {description}"
                             
                         message += "\n"
         except Exception as e:
-            print(f"Błąd przy pobieraniu statystyk: {e}")
-            message += "*Błąd przy pobieraniu szczegółowych statystyk.*\n\n"
+            print(f"{get_text('stats_error', language)}: {e}")
+            message += f"*{get_text('detailed_stats_error', language, default='Błąd przy pobieraniu szczegółowych statystyk.')}*\n\n"
         
         keyboard = [
-            [InlineKeyboardButton("💰 Kup więcej kredytów", callback_data="menu_credits_buy")],
-            [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_back_main")]
+            [InlineKeyboardButton("💰 " + get_text("buy_more_credits", language), callback_data="menu_credits_buy")],
+            [InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -391,7 +391,7 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
             if chart:
                 await update.message.reply_photo(
                     photo=chart,
-                    caption="Historia wykorzystania kredytów"
+                    caption=get_text("usage_history_chart", language, days=30, default="Historia wykorzystania kredytów")
                 )
                 
             # Dodane await przed wywołaniem funkcji asynchronicznej
@@ -399,22 +399,22 @@ async def credit_stats_command(update: Update, context: ContextTypes.DEFAULT_TYP
             if breakdown_chart:
                 await update.message.reply_photo(
                     photo=breakdown_chart,
-                    caption="Rozkład wykorzystania kredytów według kategorii"
+                    caption=get_text("usage_breakdown_chart", language, days=30, default="Rozkład wykorzystania kredytów według kategorii")
                 )
         except Exception as e:
-            print(f"Błąd przy generowaniu wykresów: {e}")
+            print(f"{get_text('charts_error', language, default='Błąd przy generowaniu wykresów')}: {e}")
             import traceback
             traceback.print_exc()
             
     except Exception as e:
-        print(f"Błąd w credit_stats_command: {e}")
+        print(f"{get_text('credit_stats_error', language, default='Błąd w credit_stats_command')}: {e}")
         import traceback
         traceback.print_exc()
         
         await loading_message.delete()
         
         await update.message.reply_text(
-            "Wystąpił błąd podczas generowania statystyk. Spróbuj ponownie później."
+            get_text("stats_generation_error", language, default="Wystąpił błąd podczas generowania statystyk. Spróbuj ponownie później.")
         )
         
 async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -434,27 +434,27 @@ async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT
             pass
     
     status_message = await update.message.reply_text(
-        get_text("analyzing_credit_usage", language, default="⏳ Analizuję dane wykorzystania kredytów...")
+        get_text("analyzing_credit_usage", language)
     )
     
     depletion_info = predict_credit_depletion(user_id, days)
     
     if not depletion_info:
         await status_message.edit_text(
-            get_text("not_enough_credit_history", language, default="Nie masz wystarczającej historii użycia kredytów, aby przeprowadzić analizę. Spróbuj ponownie po wykonaniu kilku operacji."),
+            get_text("not_enough_credit_history", language),
             parse_mode=ParseMode.MARKDOWN
         )
         return
     
-    message = f"📊 *{get_text('credit_analytics', language, default='Analiza wykorzystania kredytów')}*\n\n"
+    message = f"📊 *{get_text('credit_analytics', language)}*\n\n"
     message += f"{get_text('current_balance', language)}: *{depletion_info['current_balance']}* {get_text('credits', language)}\n"
-    message += f"{get_text('average_daily_usage', language, default='Średnie dzienne zużycie')}: *{depletion_info['average_daily_usage']}* {get_text('credits', language)}\n"
+    message += f"{get_text('average_daily_usage', language)}: *{depletion_info['average_daily_usage']}* {get_text('credits', language)}\n"
     
     if depletion_info['days_left']:
-        message += f"{get_text('predicted_depletion', language, default='Przewidywane wyczerpanie kredytów')}: {get_text('in_days', language, default='za')} *{depletion_info['days_left']}* {get_text('days', language, default='dni')} "
+        message += f"{get_text('predicted_depletion', language)}: {get_text('in_days', language)} *{depletion_info['days_left']}* {get_text('days', language)} "
         message += f"({depletion_info['depletion_date']})\n\n"
     else:
-        message += f"{get_text('not_enough_data', language, default='Za mało danych, aby przewidzieć wyczerpanie kredytów.')}.\n\n"
+        message += f"{get_text('not_enough_data', language)}.\n\n"
     
     usage_breakdown = get_credit_usage_breakdown(user_id, days)
     
@@ -463,7 +463,7 @@ async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT
             percentage = amount / sum(usage_breakdown.values()) * 100
             message += f"- {category}: *{amount}* {get_text('credits', language)} ({percentage:.1f}%)\n"
     else:
-        message += f"- {get_text('no_data', language, default='Brak dostępnych danych o użyciu.')}\n"
+        message += f"- {get_text('no_data', language)}\n"
     
     await status_message.edit_text(
         message,
@@ -476,7 +476,7 @@ async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=usage_chart,
-            caption=f"📈 {get_text('usage_history_chart', language, default=f'Historia wykorzystania kredytów z ostatnich {days} dni')}"
+            caption=f"📈 {get_text('usage_history_chart', language, days=days)}"
         )
     
     breakdown_chart = generate_usage_breakdown_chart(user_id, days)
@@ -485,65 +485,5 @@ async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=breakdown_chart,
-            caption=f"📊 {get_text('usage_breakdown_chart', language, default=f'Rozkład wykorzystania kredytów z ostatnich {days} dni')}"
+            caption=f"📊 {get_text('usage_breakdown_chart', language, days=days)}"
         )
-
-async def freecredits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Dodaje 100 darmowych kredytów nowemu użytkownikowi (jednorazowo)
-    Użycie: /freecredits
-    """
-    user_id = update.effective_user.id
-    language = get_user_language(context, user_id)
-    
-    try:
-        # Sprawdź bezpośrednio w tabeli transakcji czy użytkownik już wykorzystał darmowe kredyty
-        from database.supabase_client import supabase
-        
-        response = supabase.table('credit_transactions').select('*').eq('user_id', user_id).eq('description', 'Free credits promotion').execute()
-        
-        if response.data and len(response.data) > 0:
-            # Użytkownik już wykorzystał promocję
-            message = create_header("Promocja wykorzystana", "info")
-            message += get_text("free_credits_already_used", language, default="Już wykorzystałeś promocję darmowych kredytów.")
-            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
-            return
-        
-        # Pobierz aktualny stan kredytów
-        current_credits = get_user_credits(user_id)
-        
-        # Bezpośrednio zaktualizuj stan kredytów użytkownika
-        updated_credits = current_credits + 100
-        
-        # Aktualizuj rekord użytkownika
-        supabase.table('user_credits').update({
-            'credits_amount': updated_credits
-        }).eq('user_id', user_id).execute()
-        
-        # Dodaj wpis do historii transakcji
-        import datetime
-        now = datetime.datetime.now().isoformat()
-        
-        supabase.table('credit_transactions').insert({
-            'user_id': user_id,
-            'transaction_type': 'add',
-            'amount': 100,
-            'credits_before': current_credits,
-            'credits_after': updated_credits,
-            'description': 'Free credits promotion',
-            'created_at': now
-        }).execute()
-        
-        message = create_header("Darmowe kredyty dodane!", "success")
-        message += get_text("free_credits_added", language, credits=100, total=updated_credits,
-                         default=f"Dodano 100 darmowych kredytów do Twojego konta!\n\nAktualne saldo: {updated_credits} kredytów.")
-        
-        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
-    
-    except Exception as e:
-        import logging
-        logging.error(f"Błąd przy dodawaniu darmowych kredytów: {e}")
-        
-        message = create_header("Błąd", "error")
-        message += get_text("free_credits_error", language, default="Wystąpił błąd podczas dodawania darmowych kredytów. Spróbuj ponownie później.")
-        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)

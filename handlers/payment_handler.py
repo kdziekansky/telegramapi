@@ -10,7 +10,7 @@ from database.payment_client import (
     get_user_subscriptions, cancel_subscription,
     get_payment_transactions
 )
-from handlers.menu_handler import get_user_language
+from utils.user_utils import get_user_language
 from utils.translations import get_text
 import logging
 
@@ -29,7 +29,7 @@ async def payment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not payment_methods:
         await update.message.reply_text(
-            get_text("payment_methods_unavailable", language, default="Obecnie brak dostępnych metod płatności. Spróbuj ponownie później.")
+            get_text("payment_methods_unavailable", language)
         )
         return
     
@@ -54,7 +54,7 @@ async def payment_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        get_text("select_payment_method", language, default="Wybierz metodę płatności:"),
+        get_text("select_payment_method", language),
         reply_markup=reply_markup,
         parse_mode=ParseMode.MARKDOWN
     )
@@ -72,12 +72,12 @@ async def subscription_command(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if not subscriptions:
         await update.message.reply_text(
-            get_text("no_active_subscriptions", language, default="Nie masz aktywnych subskrypcji.")
+            get_text("no_active_subscriptions", language)
         )
         return
     
     # Utwórz listę aktywnych subskrypcji
-    message = get_text("active_subscriptions", language, default="*Aktywne subskrypcje:*\n\n")
+    message = get_text("active_subscriptions", language)
     
     # Pobierz dane pakietów
     packages = {p['id']: p for p in get_credit_packages()}
@@ -85,19 +85,19 @@ async def subscription_command(update: Update, context: ContextTypes.DEFAULT_TYP
     # Dodaj informacje o każdej subskrypcji
     for i, sub in enumerate(subscriptions, 1):
         package_id = sub['credit_package_id']
-        package_name = packages.get(package_id, {}).get('name', 'Nieznany pakiet')
+        package_name = packages.get(package_id, {}).get('name', get_text("unknown_package", language, default='Nieznany pakiet'))
         package_credits = packages.get(package_id, {}).get('credits', 0)
-        next_billing = sub['next_billing_date'].split('T')[0] if sub['next_billing_date'] else 'Nieznana'
+        next_billing = sub['next_billing_date'].split('T')[0] if sub['next_billing_date'] else get_text("unknown_date", language, default='Nieznana')
         
-        message += f"{i}. *{package_name}* - {package_credits} kredytów miesięcznie\n"
-        message += f"   Następne odnowienie: {next_billing}\n\n"
+        message += f"{i}. *{package_name}* - {package_credits} {get_text('credits_monthly', language)}\n"
+        message += f"   {get_text('next_renewal', language, default='Następne odnowienie')}: {next_billing}\n\n"
     
     # Dodaj przyciski do zarządzania subskrypcjami
     keyboard = []
     for i, sub in enumerate(subscriptions, 1):
         keyboard.append([
             InlineKeyboardButton(
-                get_text("cancel_subscription", language, default="Anuluj subskrypcję") + f" #{i}",
+                get_text("cancel_subscription", language) + f" #{i}",
                 callback_data=f"cancel_subscription_{sub['id']}"
             )
         ])
@@ -141,13 +141,13 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         try:
             # Stwórz klawiaturę menu kredytów
             keyboard = [
-                [InlineKeyboardButton("💳 Kup kredyty", callback_data="menu_credits_buy")],
+                [InlineKeyboardButton(get_text("buy_credits_btn", language), callback_data="menu_credits_buy")],
                 [
-                    InlineKeyboardButton("💰 Metody płatności", callback_data="payment_command"),
-                    InlineKeyboardButton("🔄 Subskrypcje", callback_data="subscription_command")
+                    InlineKeyboardButton(get_text("payment_methods", language), callback_data="payment_command"),
+                    InlineKeyboardButton(get_text("subscription_manage", language), callback_data="subscription_command")
                 ],
-                [InlineKeyboardButton("📜 Historia transakcji", callback_data="transactions_command")],
-                [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_back_main")]
+                [InlineKeyboardButton(get_text("transaction_history", language, default="Historia transakcji"), callback_data="transactions_command")],
+                [InlineKeyboardButton(get_text("back", language), callback_data="menu_back_main")]
             ]
             
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -155,15 +155,15 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Pobierz aktualny stan kredytów
             credits = get_user_credits(user_id)
             
-            message = f"*Stan kredytów*\n\n"
-            message += f"Dostępne kredyty: *{credits}*\n\n"
-            message += f"*Koszty operacji:*\n"
-            message += f"▪️ Wiadomość standardowa (GPT-3.5): 1 kredyt\n"
-            message += f"▪️ Wiadomość premium (GPT-4o): 3 kredyty\n"
-            message += f"▪️ Wiadomość ekspercka (GPT-4): 5 kredytów\n"
-            message += f"▪️ Generowanie obrazu: 10-15 kredytów\n"
-            message += f"▪️ Analiza dokumentu: 5 kredytów\n"
-            message += f"▪️ Analiza zdjęcia: 8 kredytów\n\n"
+            message = f"*{get_text('credit_status', language, default='Stan kredytów')}*\n\n"
+            message += f"{get_text('available_credits', language)}: *{credits}*\n\n"
+            message += f"*{get_text('operation_costs', language)}:*\n"
+            message += f"▪️ {get_text('standard_message', language)} (GPT-3.5): 1 {get_text('credit', language)}\n"
+            message += f"▪️ {get_text('premium_message', language)} (GPT-4o): 3 {get_text('credits', language)}\n"
+            message += f"▪️ {get_text('expert_message', language)} (GPT-4): 5 {get_text('credits', language)}\n"
+            message += f"▪️ {get_text('dalle_image', language)}: 10-15 {get_text('credits', language)}\n"
+            message += f"▪️ {get_text('document_analysis', language)}: 5 {get_text('credits', language)}\n"
+            message += f"▪️ {get_text('photo_analysis', language)}: 8 {get_text('credits', language)}\n\n"
             
             # Użycie centralnego systemu menu
             await update_menu(
@@ -178,10 +178,10 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             
             return True
         except Exception as e:
-            print(f"Error returning to credits menu: {e}")
+            print(f"{get_text('credits_menu_error', language, default='Error returning to credits menu')}: {e}")
             # Próbuj wysłać nową wiadomość
             try:
-                message = f"Stan kredytów: {credits}\n\nZobacz opcje zakupu kredytów poniżej:"
+                message = f"{get_text('credit_status_short', language, default='Stan kredytów')}: {credits}\n\n{get_text('buy_options', language, default='Zobacz opcje zakupu kredytów poniżej:')}"
                 await context.bot.send_message(
                     chat_id=query.message.chat_id,
                     text=message,
@@ -189,12 +189,12 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
                 )
                 return True
             except Exception as e2:
-                print(f"Second error: {e2}")
+                print(f"{get_text('second_error', language, default='Second error')}: {e2}")
     
     # Obsługa starego formatu buy_package bez metody płatności
     if query.data.startswith("buy_package_") and "_" in query.data and len(query.data.split("_")) == 3:
         # Przekieruj do nowego interfejsu płatności
-        await query.answer("Przekierowuję do nowego interfejsu płatności...")
+        await query.answer(get_text("redirecting_to_payment", language, default="Przekierowuję do nowego interfejsu płatności..."))
         
         # Stwórz sztuczny obiekt update
         fake_update = type('obj', (object,), {
@@ -217,7 +217,7 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         
         # Wywołaj z odpowiednią ścieżką nawigacji
         language = get_user_language(context, user_id)
-        nav_path = get_text("main_menu", language, default="Menu główne") + " > " + get_text("menu_credits", language)
+        nav_path = get_text("main_menu", language) + " > " + get_text("menu_credits", language)
         return await handle_credits_section(update, context, nav_path)
     
     # Obsługa komendy płatności
@@ -229,8 +229,8 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("payment_methods_unavailable", language, default="Obecnie brak dostępnych metod płatności. Spróbuj ponownie później."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="payment_back_to_credits")]]),
+                get_text("payment_methods_unavailable", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data="payment_back_to_credits")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
             return True
@@ -258,7 +258,7 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         # Użycie centralnego systemu menu
         await update_menu(
             query,
-            get_text("select_payment_method", language, default="Wybierz metodę płatności:"),
+            get_text("select_payment_method", language),
             reply_markup,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -281,8 +281,8 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("packages_unavailable", language, default="Aktualnie brak dostępnych pakietów kredytów. Spróbuj ponownie później."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="payment_command")]]),
+                get_text("packages_unavailable", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data="payment_command")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
             return True
@@ -292,9 +292,9 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         for package in packages:
             # Dostosuj tekst przycisku w zależności od tego, czy to subskrypcja
             if is_subscription:
-                button_text = f"{package['name']} - {package['credits']} {get_text('credits_monthly', language, default='kredytów miesięcznie')} ({package['price']} PLN/mies.)"
+                button_text = f"{package['name']} - {package['credits']} {get_text('credits_monthly', language)} ({package['price']} PLN/{get_text('month_short', language, default='mies.')})"
             else:
-                button_text = f"{package['name']} - {package['credits']} {get_text('credits', language, default='kredytów')} ({package['price']} PLN)"
+                button_text = f"{package['name']} - {package['credits']} {get_text('credits', language)} ({package['price']} PLN)"
             
             keyboard.append([
                 InlineKeyboardButton(
@@ -306,7 +306,7 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         # Dodaj przycisk powrotu
         keyboard.append([
             InlineKeyboardButton(
-                get_text("back", language, default="Powrót"),
+                get_text("back", language),
                 callback_data="payment_command"
             )
         ])
@@ -315,14 +315,11 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         
         # Dostosuj tekst wiadomości w zależności od metody płatności
         if payment_method_code in ["allegro", "russia_payment"]:
-            message = get_text(f"payment_info_{payment_method_code}", language, 
-                               default="Wybierz pakiet kredytów, który chcesz zakupić przez zewnętrzną metodę płatności:")
+            message = get_text(f"payment_info_{payment_method_code}", language)
         elif is_subscription:
-            message = get_text("payment_subscription_info", language, 
-                              default="Wybierz pakiet kredytów, który chcesz ustawić jako miesięczną subskrypcję:")
+            message = get_text("payment_subscription_info", language)
         else:
-            message = get_text("payment_package_selection", language, 
-                              default="Wybierz pakiet kredytów, który chcesz zakupić:")
+            message = get_text("payment_package_selection", language)
         
         # Użycie centralnego systemu menu
         await update_menu(
@@ -359,7 +356,7 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Utwórz przycisk do przejścia do płatności
             keyboard = [[
                 InlineKeyboardButton(
-                    get_text("proceed_to_payment", language, default="Przejdź do płatności"),
+                    get_text("proceed_to_payment", language),
                     url=payment_url
                 )
             ]]
@@ -376,14 +373,11 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             
             # Dostosuj wiadomość w zależności od metody płatności
             if payment_method_code in ["allegro", "russia_payment"]:
-                message = get_text(f"external_payment_instructions_{payment_method_code}", language, 
-                                  default="Kliknij przycisk poniżej, aby przejść do płatności zewnętrznej. Po zakupie otrzymasz kod, który możesz aktywować za pomocą komendy /code [twój_kod].")
+                message = get_text(f"external_payment_instructions_{payment_method_code}", language)
             elif is_subscription:
-                message = get_text("subscription_payment_instructions", language, 
-                                  default="Kliknij przycisk poniżej, aby ustawić miesięczną subskrypcję. Kredyty będą dodawane automatycznie co miesiąc po pobraniu opłaty.")
+                message = get_text("subscription_payment_instructions", language)
             else:
-                message = get_text("payment_instructions", language, 
-                                  default="Kliknij przycisk poniżej, aby przejść do płatności. Po zakończeniu transakcji kredyty zostaną automatycznie dodane do Twojego konta.")
+                message = get_text("payment_instructions", language)
             
             # Użycie centralnego systemu menu
             await update_menu(
@@ -401,8 +395,8 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("payment_creation_error", language, default="Wystąpił błąd podczas tworzenia płatności. Spróbuj ponownie później."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data=f"payment_method_{payment_method_code}")]]),
+                get_text("payment_creation_error", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data=f"payment_method_{payment_method_code}")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
         return True
@@ -416,14 +410,14 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("no_active_subscriptions", language, default="Nie masz aktywnych subskrypcji."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="payment_back_to_credits")]]),
+                get_text("no_active_subscriptions", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data="payment_back_to_credits")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
             return True
         
         # Utwórz listę aktywnych subskrypcji
-        message = get_text("active_subscriptions", language, default="*Aktywne subskrypcje:*\n\n")
+        message = get_text("active_subscriptions", language)
         
         # Pobierz dane pakietów
         packages = {p['id']: p for p in get_credit_packages()}
@@ -431,19 +425,19 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         # Dodaj informacje o każdej subskrypcji
         for i, sub in enumerate(subscriptions, 1):
             package_id = sub['credit_package_id']
-            package_name = packages.get(package_id, {}).get('name', 'Nieznany pakiet')
+            package_name = packages.get(package_id, {}).get('name', get_text("unknown_package", language, default='Nieznany pakiet'))
             package_credits = packages.get(package_id, {}).get('credits', 0)
-            next_billing = sub['next_billing_date'].split('T')[0] if sub['next_billing_date'] else 'Nieznana'
+            next_billing = sub['next_billing_date'].split('T')[0] if sub['next_billing_date'] else get_text("unknown_date", language, default='Nieznana')
             
-            message += f"{i}. *{package_name}* - {package_credits} kredytów miesięcznie\n"
-            message += f"   Następne odnowienie: {next_billing}\n\n"
+            message += f"{i}. *{package_name}* - {package_credits} {get_text('credits_monthly', language)}\n"
+            message += f"   {get_text('next_renewal', language, default='Następne odnowienie')}: {next_billing}\n\n"
         
         # Dodaj przyciski do zarządzania subskrypcjami
         keyboard = []
         for i, sub in enumerate(subscriptions, 1):
             keyboard.append([
                 InlineKeyboardButton(
-                    get_text("cancel_subscription", language, default="Anuluj subskrypcję") + f" #{i}",
+                    get_text("cancel_subscription", language) + f" #{i}",
                     callback_data=f"cancel_subscription_{sub['id']}"
                 )
             ])
@@ -494,7 +488,7 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         # Użycie centralnego systemu menu
         await update_menu(
             query,
-            get_text("cancel_subscription_confirm", language, default="Czy na pewno chcesz anulować tę subskrypcję? Nie zostaniesz już obciążony opłatą w kolejnym miesiącu, ale bieżący okres rozliczeniowy pozostanie aktywny."),
+            get_text("cancel_subscription_confirm", language),
             reply_markup,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -515,16 +509,16 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("subscription_cancelled", language, default="✅ Subskrypcja została anulowana. Nie będzie już automatycznie odnawiana."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="subscription_command")]]),
+                get_text("subscription_cancelled", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data="subscription_command")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
         else:
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("subscription_cancel_error", language, default="❌ Wystąpił błąd podczas anulowania subskrypcji. Spróbuj ponownie później."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="subscription_command")]]),
+                get_text("subscription_cancel_error", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data="subscription_command")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
         return True
@@ -538,28 +532,23 @@ async def handle_payment_callback(update: Update, context: ContextTypes.DEFAULT_
             # Użycie centralnego systemu menu
             await update_menu(
                 query,
-                get_text("no_payment_transactions", language, default="Nie masz żadnych transakcji płatności."),
-                InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="payment_back_to_credits")]]),
+                get_text("no_payment_transactions", language),
+                InlineKeyboardMarkup([[InlineKeyboardButton(get_text("back", language), callback_data="payment_back_to_credits")]]),
                 parse_mode=ParseMode.MARKDOWN
             )
             return True
         
         # Utwórz wiadomość z historią transakcji
-        message = get_text("payment_transactions_history", language, default="*Historia transakcji płatności:*\n\n")
+        message = get_text("payment_transactions_history", language)
         
         for i, transaction in enumerate(transactions, 1):
-            status_text = {
-                'pending': get_text("transaction_status_pending", language, default="Oczekująca"),
-                'completed': get_text("transaction_status_completed", language, default="Zakończona"),
-                'failed': get_text("transaction_status_failed", language, default="Nieudana"),
-                'cancelled': get_text("transaction_status_cancelled", language, default="Anulowana")
-            }.get(transaction['status'], transaction['status'])
+            status_text = get_text(f"transaction_status_{transaction['status']}", language, default=transaction['status'])
             
             date = transaction['created_at'].split('T')[0] if 'T' in transaction['created_at'] else transaction['created_at']
             
             message += f"{i}. *{transaction['package_name']}* - {transaction['package_credits']} {get_text('credits', language)}\n"
             message += f"   {transaction['payment_method_name']} - {transaction['amount']} PLN\n"
-            message += f"   {get_text('status', language, default='Status')}: {status_text}, {get_text('date', language, default='Data')}: {date}\n\n"
+            message += f"   {get_text('status', language)}: {status_text}, {get_text('date', language)}: {date}\n\n"
         
         # Dodaj przycisk powrotu
         keyboard = [[
@@ -599,26 +588,21 @@ async def transactions_command(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if not transactions:
         await update.message.reply_text(
-            get_text("no_payment_transactions", language, default="Nie masz żadnych transakcji płatności.")
+            get_text("no_payment_transactions", language)
         )
         return
     
     # Utwórz wiadomość z historią transakcji
-    message = get_text("payment_transactions_history", language, default="*Historia transakcji płatności:*\n\n")
+    message = get_text("payment_transactions_history", language)
     
     for i, transaction in enumerate(transactions, 1):
-        status_text = {
-            'pending': get_text("transaction_status_pending", language, default="Oczekująca"),
-            'completed': get_text("transaction_status_completed", language, default="Zakończona"),
-            'failed': get_text("transaction_status_failed", language, default="Nieudana"),
-            'cancelled': get_text("transaction_status_cancelled", language, default="Anulowana")
-        }.get(transaction['status'], transaction['status'])
+        status_text = get_text(f"transaction_status_{transaction['status']}", language, default=transaction['status'])
         
         date = transaction['created_at'].split('T')[0]
         
         message += f"{i}. *{transaction['package_name']}* - {transaction['package_credits']} {get_text('credits', language)}\n"
         message += f"   {transaction['payment_method_name']} - {transaction['amount']} PLN\n"
-        message += f"   {get_text('status', language, default='Status')}: {status_text}, {get_text('date', language, default='Data')}: {date}\n\n"
+        message += f"   {get_text('status', language)}: {status_text}, {get_text('date', language)}: {date}\n\n"
     
     # Dodaj przycisk powrotu
     keyboard = [[

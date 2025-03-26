@@ -22,9 +22,9 @@ async def _process_operation(update, context, operation_type, operation_func, us
     # Check user credits
     credits = get_user_credits(user_id)
     if not check_user_credits(user_id, credit_cost):
-        error_msg = create_header("Brak wystarczających kredytów", "error") + \
-                    "W międzyczasie twój stan kredytów zmienił się i nie masz już wystarczającej liczby kredytów."
-        await update_menu(query, error_msg, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_back_main")]]),
+        error_msg = create_header(get_text("insufficient_funds", language, default="Brak wystarczających kredytów"), "error") + \
+                    get_text("credits_changed_message", language, default="W międzyczasie twój stan kredytów zmienił się i nie masz już wystarczającej liczby kredytów.")
+        await update_menu(query, error_msg, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")]]),
                           parse_mode=ParseMode.MARKDOWN)
         return
     
@@ -47,17 +47,17 @@ async def _process_operation(update, context, operation_type, operation_func, us
         tip_text = ""
         if should_show_tip(user_id, context):
             tip = get_random_tip(operation_type.split('_')[0])  # Get category from operation
-            tip_text = f"\n\n💡 *Porada:* {tip}"
+            tip_text = f"\n\n💡 *{get_text('tip', language, default='Porada')}:* {tip}"
         
         # Call success handler with results
         await success_handler(result, usage_report, tip_text)
         
         # Show low credits warning if needed
         if credits_after < 5:
-            low_credits_warning = create_header("Niski stan kredytów", "warning") + \
-                                f"Pozostało Ci tylko *{credits_after}* kredytów. Rozważ zakup pakietu, aby kontynuować korzystanie z bota."
+            low_credits_warning = create_header(get_text("low_credits_warning", language, default="Niski stan kredytów"), "warning") + \
+                                get_text("low_credits_message", language, credits=credits_after, default=f"Pozostało Ci tylko *{credits_after}* kredytów. Rozważ zakup pakietu, aby kontynuować korzystanie z bota.")
             
-            keyboard = [[InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language), callback_data="menu_credits_buy")]]
+            keyboard = [[InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language, default="Kup kredyty"), callback_data="menu_credits_buy")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await context.bot.send_message(
@@ -71,15 +71,16 @@ async def _process_operation(update, context, operation_type, operation_func, us
         if error_handler:
             await error_handler(e)
         else:
-            error_msg = create_header(f"Błąd {operation_type}", "error") + \
-                      f"Wystąpił błąd podczas operacji: {str(e)}"
-            await update_menu(query, error_msg, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_back_main")]]), 
+            error_msg = create_header(get_text("operation_error", language, operation_type=operation_type, default=f"Błąd {operation_type}"), "error") + \
+                      get_text("error_occurred", language, error=str(e), default=f"Wystąpił błąd podczas operacji: {str(e)}")
+            await update_menu(query, error_msg, InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")]]), 
                              parse_mode=ParseMode.MARKDOWN)
 
 async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Obsługuje potwierdzenie generowania obrazu"""
     query = update.callback_query
     user_id = query.from_user.id
+    language = get_user_language(context, user_id)
     
     await query.answer()
     
@@ -88,8 +89,8 @@ async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAUL
         
         await update_menu(
             query,
-            create_status_indicator('loading', "Generowanie obrazu") + "\n\n" +
-            f"*Prompt:* {prompt}",
+            create_status_indicator('loading', get_text("generating_image", language, default="Generowanie obrazu")) + "\n\n" +
+            f"*{get_text('image_description', language, default='Prompt')}:* {prompt}",
             None,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -97,8 +98,8 @@ async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAUL
         credit_cost = CREDIT_COSTS["image"]["standard"]
         
         async def success_handler(image_url, usage_report, tip_text):
-            caption = create_header("Wygenerowany obraz", "image")
-            caption += f"*Prompt:* {prompt}\n\n{usage_report}{tip_text}"
+            caption = create_header(get_text("generated_image", language, default="Wygenerowany obraz"), "image")
+            caption += f"*{get_text('image_description', language, default='Prompt')}:* {prompt}\n\n{usage_report}{tip_text}"
             
             await query.message.delete()
             
@@ -110,12 +111,10 @@ async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAUL
             )
         
         async def error_handler(error):
-            language = get_user_language(context, user_id)
-            
             await update_menu(
                 query,
-                create_header("Błąd generowania", "error") +
-                get_text("image_generation_error", language, default="Przepraszam, wystąpił błąd podczas generowania obrazu. Spróbuj ponownie z innym opisem."),
+                create_header(get_text("image_generation_error_header", language, default="Błąd generowania"), "error") +
+                get_text("image_generation_error", language),
                 parse_mode=ParseMode.MARKDOWN
             )
         
@@ -127,8 +126,8 @@ async def handle_image_confirmation(update: Update, context: ContextTypes.DEFAUL
     elif query.data == "cancel_operation":
         await update_menu(
             query,
-            create_header("Operacja anulowana", "info") +
-            "Generowanie obrazu zostało anulowane.",
+            create_header(get_text("operation_cancelled", language, default="Operacja anulowana"), "info") +
+            get_text("image_generation_cancelled", language, default="Generowanie obrazu zostało anulowane."),
             parse_mode=ParseMode.MARKDOWN
         )
 
@@ -149,8 +148,8 @@ async def handle_document_confirmation(update: Update, context: ContextTypes.DEF
             
             await update_menu(
                 query,
-                create_header("Błąd operacji", "error") +
-                "Nie znaleziono informacji o dokumencie. Spróbuj wysłać go ponownie.",
+                create_header(get_text("operation_error", language, operation_type="", default="Błąd operacji"), "error") +
+                get_text("document_info_not_found", language, default="Nie znaleziono informacji o dokumencie. Spróbuj wysłać go ponownie."),
                 parse_mode=ParseMode.MARKDOWN
             )
             return
@@ -159,19 +158,19 @@ async def handle_document_confirmation(update: Update, context: ContextTypes.DEF
         
         await update_menu(
             query,
-            create_status_indicator('loading', "Analizowanie dokumentu") + "\n\n" +
-            f"*Dokument:* {file_name}",
+            create_status_indicator('loading', get_text("analyzing_file", language, default="Analizowanie dokumentu")) + "\n\n" +
+            f"*{get_text('document', language, default='Dokument')}:* {file_name}",
             parse_mode=ParseMode.MARKDOWN
         )
         
         credit_cost = CREDIT_COSTS["document"]
         
         async def success_handler(analysis, usage_report, tip_text):
-            result_message = create_header(f"Analiza dokumentu: {file_name}", "document")
+            result_message = create_header(get_text("file_analysis_title", language, file_name=file_name, default=f"Analiza dokumentu: {file_name}"), "document")
             
             analysis_excerpt = analysis[:3000]
             if len(analysis) > 3000:
-                analysis_excerpt += "...\n\n(Analiza została skrócona ze względu na długość)"
+                analysis_excerpt += "...\n\n" + get_text("analysis_truncated", language, default="(Analiza została skrócona ze względu na długość)")
             
             result_message += analysis_excerpt + f"\n\n{usage_report}{tip_text}"
             
@@ -211,18 +210,18 @@ async def handle_photo_confirmation(update: Update, context: ContextTypes.DEFAUL
                 
                 await update_menu(
                     query,
-                    create_header("Błąd operacji", "error") +
-                    "Nie znaleziono informacji o zdjęciu. Spróbuj wysłać je ponownie.",
+                    create_header(get_text("operation_error", language, operation_type="", default="Błąd operacji"), "error") +
+                    get_text("photo_info_not_found", language, default="Nie znaleziono informacji o zdjęciu. Spróbuj wysłać je ponownie."),
                     parse_mode=ParseMode.MARKDOWN
                 )
                 return
             
             if mode == "translate":
-                operation_name = "Tłumaczenie tekstu ze zdjęcia"
-                status_message = create_status_indicator('loading', "Tłumaczenie tekstu ze zdjęcia")
+                operation_name = get_text("photo_translation", language, default="Tłumaczenie tekstu ze zdjęcia")
+                status_message = create_status_indicator('loading', get_text("translating_image", language, default="Tłumaczenie tekstu ze zdjęcia"))
             else:
-                operation_name = "Analiza zdjęcia"
-                status_message = create_status_indicator('loading', "Analizowanie zdjęcia")
+                operation_name = get_text("photo_analysis", language, default="Analiza zdjęcia")
+                status_message = create_status_indicator('loading', get_text("analyzing_photo", language, default="Analizowanie zdjęcia"))
             
             await update_menu(
                 query,
@@ -234,9 +233,9 @@ async def handle_photo_confirmation(update: Update, context: ContextTypes.DEFAUL
             
             async def success_handler(result, usage_report, tip_text):
                 if mode == "translate":
-                    result_message = create_header("Tłumaczenie tekstu ze zdjęcia", "translation")
+                    result_message = create_header(get_text("photo_translation", language, default="Tłumaczenie tekstu ze zdjęcia"), "translation")
                 else:
-                    result_message = create_header("Analiza zdjęcia", "analysis")
+                    result_message = create_header(get_text("photo_analysis", language, default="Analiza zdjęcia"), "analysis")
                 
                 result_message += result + f"\n\n{usage_report}{tip_text}"
                 
@@ -259,8 +258,8 @@ async def handle_photo_confirmation(update: Update, context: ContextTypes.DEFAUL
     elif query.data == "cancel_operation":
         await update_menu(
             query,
-            create_header("Operacja anulowana", "info") +
-            "Operacja została anulowana.",
+            create_header(get_text("operation_cancelled", language, default="Operacja anulowana"), "info") +
+            get_text("operation_cancelled_message", language, default="Operacja została anulowana."),
             parse_mode=ParseMode.MARKDOWN
         )
 
@@ -279,8 +278,8 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             
             await update_menu(
                 query,
-                create_header("Błąd operacji", "error") +
-                "Nie znaleziono oczekującej wiadomości. Spróbuj ponownie.",
+                create_header(get_text("operation_error", language, operation_type="", default="Błąd operacji"), "error") +
+                get_text("no_pending_message", language, default="Nie znaleziono oczekującej wiadomości. Spróbuj ponownie."),
                 parse_mode=ParseMode.MARKDOWN
             )
             return
@@ -291,7 +290,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
         
         status_message = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=create_status_indicator('loading', "Generowanie odpowiedzi"),
+            text=create_status_indicator('loading', get_text("generating_response", language, default="Generowanie odpowiedzi")),
             parse_mode=ParseMode.MARKDOWN
         )
         
@@ -309,8 +308,8 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             conversation_id = conversation['id']
         except Exception as e:
             await status_message.edit_text(
-                create_header("Błąd konwersacji", "error") +
-                "Wystąpił błąd przy pobieraniu konwersacji. Spróbuj ponownie.",
+                create_header(get_text("conversation_error_header", language, default="Błąd konwersacji"), "error") +
+                get_text("conversation_error", language),
                 parse_mode=ParseMode.MARKDOWN
             )
             return
@@ -345,7 +344,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
         
         try:
             response_message = await status_message.edit_text(
-                create_header("Odpowiedź AI", "chat"),
+                create_header(get_text("ai_response", language, default="Odpowiedź AI"), "chat"),
                 parse_mode=ParseMode.MARKDOWN
             )
             
@@ -357,7 +356,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
                 if current_time - last_update >= 1.0 or len(buffer) > 100:
                     try:
                         await response_message.edit_text(
-                            create_header("Odpowiedź AI", "chat") + full_response + "▌",
+                            create_header(get_text("ai_response", language, default="Odpowiedź AI"), "chat") + full_response + "▌",
                             parse_mode=ParseMode.MARKDOWN
                         )
                         buffer = ""
@@ -367,12 +366,12 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             
             try:
                 await response_message.edit_text(
-                    create_header("Odpowiedź AI", "chat") + full_response,
+                    create_header(get_text("ai_response", language, default="Odpowiedź AI"), "chat") + full_response,
                     parse_mode=ParseMode.MARKDOWN
                 )
             except Exception as e:
                 await response_message.edit_text(
-                    create_header("Odpowiedź AI", "chat") + full_response,
+                    create_header(get_text("ai_response", language, default="Odpowiedź AI"), "chat") + full_response,
                     parse_mode=None
                 )
             
@@ -384,7 +383,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             credits_after = get_user_credits(user_id)
             
             usage_report = format_credit_usage_report(
-                "Wiadomość AI", 
+                get_text("ai_message", language, default="Wiadomość AI"), 
                 credit_cost, 
                 credits_before, 
                 credits_after
@@ -397,10 +396,10 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             )
             
             if credits_after < 5:
-                low_credits_warning = create_header("Niski stan kredytów", "warning")
-                low_credits_warning += f"Pozostało Ci tylko *{credits_after}* kredytów. Rozważ zakup pakietu, aby kontynuować korzystanie z bota."
+                low_credits_warning = create_header(get_text("low_credits_warning", language, default="Niski stan kredytów"), "warning")
+                low_credits_warning += get_text("low_credits_message", language, credits=credits_after, default=f"Pozostało Ci tylko *{credits_after}* kredytów. Rozważ zakup pakietu, aby kontynuować korzystanie z bota.")
                 
-                keyboard = [[InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language), callback_data="menu_credits_buy")]]
+                keyboard = [[InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language, default="Kup kredyty"), callback_data="menu_credits_buy")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 await context.bot.send_message(
@@ -412,7 +411,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             
             tip = get_contextual_tip('chat', context, user_id)
             if tip:
-                tip_message = f"💡 *Porada:* {tip}"
+                tip_message = f"💡 *{get_text('tip', language, default='Porada')}:* {tip}"
                 await context.bot.send_message(
                     chat_id=query.message.chat_id,
                     text=tip_message,
@@ -423,7 +422,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
             
         except Exception as e:
             await status_message.edit_text(
-                create_header("Błąd odpowiedzi", "error") +
+                create_header(get_text("response_error_header", language, default="Błąd odpowiedzi"), "error") +
                 get_text("response_error", language, error=str(e)),
                 parse_mode=ParseMode.MARKDOWN
             )
@@ -431,7 +430,7 @@ async def handle_message_confirmation(update: Update, context: ContextTypes.DEFA
     elif query.data == "cancel_operation":
         await update_menu(
             query,
-            create_header("Operacja anulowana", "info") +
-            "Wysłanie wiadomości zostało anulowane.",
+            create_header(get_text("operation_cancelled", language, default="Operacja anulowana"), "info") +
+            get_text("message_cancelled", language, default="Wysłanie wiadomości zostało anulowane."),
             parse_mode=ParseMode.MARKDOWN
         )

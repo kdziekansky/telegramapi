@@ -15,6 +15,7 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
+        language = get_user_language(context, user_id)
         
         conversation = create_new_conversation(user_id)
         
@@ -90,13 +91,6 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def models_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Obsługuje komendę /models - otwiera menu wyboru modelu AI"""
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    from telegram.constants import ParseMode
-    from config import AVAILABLE_MODELS, CREDIT_COSTS
-    from utils.translations import get_text
-    from utils.user_utils import get_user_language
-    from utils.menu import store_menu_state, get_navigation_path
-    
     user_id = update.effective_user.id
     language = get_user_language(context, user_id)
     
@@ -109,10 +103,10 @@ async def models_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     premium_claude_models = ["claude-3-7-sonnet-20250219", "claude-3-opus-20240229", 
                            "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-20240620"]
     
-    message_text += "\n\n*🤖 OpenAI - Modele standardowe:*"
-    message_text += "\n\n*🤖 OpenAI - Modele premium:*"
-    message_text += "\n\n*🤖 Claude - Modele standardowe:*"
-    message_text += "\n\n*🤖 Claude - Modele premium:*"
+    message_text += "\n\n*🤖 " + get_text("openai_standard_models", language, default="OpenAI - Modele standardowe") + ":*"
+    message_text += "\n\n*🤖 " + get_text("openai_premium_models", language, default="OpenAI - Modele premium") + ":*"
+    message_text += "\n\n*🤖 " + get_text("claude_standard_models", language, default="Claude - Modele standardowe") + ":*"
+    message_text += "\n\n*🤖 " + get_text("claude_premium_models", language, default="Claude - Modele premium") + ":*"
     
     buttons = []
     
@@ -173,7 +167,7 @@ async def check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'current_model' in user_data and user_data['current_model'] in AVAILABLE_MODELS:
             current_model = user_data['current_model']
     
-    model_name = AVAILABLE_MODELS.get(current_model, "Unknown Model")
+    model_name = AVAILABLE_MODELS.get(current_model, get_text("unknown_model", language, default="Unknown Model"))
     
     message_status = await get_message_status(user_id)
     
@@ -240,18 +234,18 @@ async def new_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 model_to_use = user_data['current_model']
                 credit_cost = CREDIT_COSTS["message"].get(model_to_use, CREDIT_COSTS["message"]["default"])
         
-        model_name = AVAILABLE_MODELS.get(model_to_use, model_to_use)
+        model_name = AVAILABLE_MODELS.get(model_to_use, get_text("unknown_model", language, default="Nieznany model"))
         
-        base_message = "✅ Utworzono nową rozmowę. Możesz zacząć pisać! "
-        model_info = f"Używasz modelu {model_name} za {credit_cost} kredyt(ów) za wiadomość"
+        base_message = get_text("new_chat_created_message", language, default="✅ Utworzono nową rozmowę. Możesz zacząć pisać!")
+        model_info = get_text("model_info", language, model=model_name, cost=credit_cost, default=f"Używasz modelu {model_name} za {credit_cost} kredyt(ów) za wiadomość")
         
         keyboard = [
-            [InlineKeyboardButton("🤖 Wybierz model czatu", callback_data="menu_section_settings")]
+            [InlineKeyboardButton("🤖 " + get_text("select_model", language, default="Wybierz model czatu"), callback_data="menu_section_settings")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(
-            base_message + model_info,
+            base_message + " " + model_info,
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup
         )

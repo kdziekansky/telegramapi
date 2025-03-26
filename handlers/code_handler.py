@@ -76,20 +76,21 @@ async def admin_generate_code(update: Update, context: ContextTypes.DEFAULT_TYPE
     Użycie: /gencode [liczba_kredytów] [liczba_kodów]
     """
     user_id = update.effective_user.id
+    language = get_user_language(context, user_id)
     
     # Lista ID administratorów bota
-    from config import ADMIN_USER_IDS  # Należy zaktualizować do rzeczywistych ID administracyjnych
+    from config import ADMIN_USER_IDS
     
     # Sprawdź, czy użytkownik jest administratorem
     if user_id not in ADMIN_USER_IDS:
-        await update.message.reply_text("Nie masz uprawnień do tej komendy.")
+        await update.message.reply_text(get_text("no_permission", language, default="Nie masz uprawnień do tej komendy."))
         return
     
     # Sprawdź, czy podano wystarczającą liczbę argumentów
     if not context.args or len(context.args) < 1:
         await update.message.reply_text(
-            "Użycie: /gencode [liczba_kredytów] [liczba_kodów]\n"
-            "Na przykład: /gencode 100 5 - wygeneruje 5 kodów po 100 kredytów każdy"
+            get_text("gencode_usage", language, default="Użycie: /gencode [liczba_kredytów] [liczba_kodów]") + "\n" +
+            get_text("gencode_example", language, default="Na przykład: /gencode 100 5 - wygeneruje 5 kodów po 100 kredytów każdy")
         )
         return
     
@@ -97,7 +98,7 @@ async def admin_generate_code(update: Update, context: ContextTypes.DEFAULT_TYPE
         credits = int(context.args[0])
         count = int(context.args[1]) if len(context.args) > 1 else 1
     except ValueError:
-        await update.message.reply_text("Nieprawidłowe argumenty. Użyj liczb, np. /gencode 100 5")
+        await update.message.reply_text(get_text("gencode_invalid_args", language, default="Nieprawidłowe argumenty. Użyj liczb, np. /gencode 100 5"))
         return
     
     # Ogranicz liczbę kodów do 20 na raz, aby uniknąć spamu
@@ -117,7 +118,7 @@ async def admin_generate_code(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     if codes:
         codes_text = "\n".join(codes)
-        message = f"Wygenerowane kody ({count} x {credits} kredytów):\n\n{codes_text}"
+        message = get_text("generated_codes", language, count=count, credits=credits, default=f"Wygenerowane kody ({count} x {credits} kredytów):\n\n{codes_text}")
         
         # Jeśli wiadomość jest zbyt długa, wyślij plik
         if len(message) > 4000:
@@ -128,4 +129,4 @@ async def admin_generate_code(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await update.message.reply_text(message)
     else:
-        await update.message.reply_text("Wystąpił błąd podczas generowania kodów.")
+        await update.message.reply_text(get_text("gencode_error", language, default="Wystąpił błąd podczas generowania kodów."))

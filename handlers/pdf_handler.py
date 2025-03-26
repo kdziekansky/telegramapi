@@ -4,7 +4,7 @@ from telegram.constants import ParseMode, ChatAction
 from utils.translations import get_text
 from utils.pdf_translator import translate_pdf_first_paragraph
 from database.credits_client import check_user_credits, deduct_user_credits, get_user_credits
-from handlers.menu_handler import get_user_language
+from utils.user_utils import get_user_language
 
 async def handle_pdf_translation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -21,7 +21,7 @@ async def handle_pdf_translation(update: Update, context: ContextTypes.DEFAULT_T
     
     # Sprawdź, czy wiadomość zawiera plik PDF
     if not update.message.document or not update.message.document.file_name.lower().endswith('.pdf'):
-        await update.message.reply_text(get_text("not_pdf_file", language, default="Plik nie jest w formacie PDF."))
+        await update.message.reply_text(get_text("not_pdf_file", language))
         return
     
     document = update.message.document
@@ -46,7 +46,7 @@ async def handle_pdf_translation(update: Update, context: ContextTypes.DEFAULT_T
     result = await translate_pdf_first_paragraph(file_bytes)
     
     # Odejmij kredyty
-    deduct_user_credits(user_id, credit_cost, f"Tłumaczenie pliku PDF: {file_name}")
+    deduct_user_credits(user_id, credit_cost, get_text("pdf_translation_operation", language, file_name=file_name, default=f"Tłumaczenie pliku PDF: {file_name}"))
     
     # Przygotuj odpowiedź
     if result["success"]:

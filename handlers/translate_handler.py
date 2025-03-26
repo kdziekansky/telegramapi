@@ -4,10 +4,8 @@ from telegram.constants import ParseMode, ChatAction
 from utils.translations import get_text
 from utils.openai_client import analyze_image, analyze_document
 from database.credits_client import check_user_credits, deduct_user_credits, get_user_credits
-from handlers.menu_handler import get_user_language
+from utils.user_utils import get_user_language
 import re
-
-
 
 async def translate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -50,14 +48,12 @@ async def translate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     
     # Jeśli nie ma odpowiedzi ani argumentów, wyświetl instrukcje
-    instruction_text = get_text("translate_instruction", language, default="📄 **Text Translation**\n\nAvailable options:\n\n1. Send a photo with text to translate and add /translate in the caption or reply to the photo with the /translate command\n\n2. Send a document and reply to it with the /translate command\n\n3. Use the command /translate [target_language] [text]\nFor example: /translate en Hello world!\n\nAvailable target languages: en (English), pl (Polish), ru (Russian), fr (French), de (German), es (Spanish), it (Italian), zh (Chinese)")
+    instruction_text = get_text("translate_instruction", language)
     
     await update.message.reply_text(
         instruction_text,
         parse_mode=ParseMode.MARKDOWN
     )
-
-
 
 async def translate_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, photo, target_lang="en"):
     """Tłumaczy tekst wykryty na zdjęciu"""
@@ -72,7 +68,7 @@ async def translate_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, ph
     
     # Wyślij informację o rozpoczęciu tłumaczenia
     message = await update.message.reply_text(
-        get_text("translating_image", language, default="Tłumaczę tekst ze zdjęcia, proszę czekać...")
+        get_text("translating_image", language)
     )
     
     # Wyślij informację o aktywności bota
@@ -86,11 +82,11 @@ async def translate_photo(update: Update, context: ContextTypes.DEFAULT_TYPE, ph
     result = await analyze_image(file_bytes, f"photo_{photo.file_unique_id}.jpg", mode="translate", target_language=target_lang)
     
     # Odejmij kredyty
-    deduct_user_credits(user_id, credit_cost, f"Tłumaczenie tekstu ze zdjęcia na język {target_lang}")
+    deduct_user_credits(user_id, credit_cost, get_text("photo_translation_operation", language, target_lang=target_lang, default=f"Tłumaczenie tekstu ze zdjęcia na język {target_lang}"))
     
     # Wyślij tłumaczenie
     await message.edit_text(
-        f"*{get_text('translation_result', language, default='Wynik tłumaczenia')}*\n\n{result}",
+        f"*{get_text('translation_result', language)}*\n\n{result}",
         parse_mode=ParseMode.MARKDOWN
     )
     
@@ -122,7 +118,7 @@ async def translate_document(update: Update, context: ContextTypes.DEFAULT_TYPE,
     
     # Wyślij informację o rozpoczęciu tłumaczenia
     message = await update.message.reply_text(
-        get_text("translating_document", language, default="Tłumaczę dokument, proszę czekać...")
+        get_text("translating_document", language)
     )
     
     # Wyślij informację o aktywności bota
@@ -136,11 +132,11 @@ async def translate_document(update: Update, context: ContextTypes.DEFAULT_TYPE,
     result = await analyze_document(file_bytes, file_name, mode="translate", target_language=target_lang)
     
     # Odejmij kredyty
-    deduct_user_credits(user_id, credit_cost, f"Tłumaczenie dokumentu na język {target_lang}: {file_name}")
+    deduct_user_credits(user_id, credit_cost, get_text("document_translation_operation", language, file_name=file_name, target_lang=target_lang, default=f"Tłumaczenie dokumentu na język {target_lang}: {file_name}"))
     
     # Wyślij tłumaczenie
     await message.edit_text(
-        f"*{get_text('translation_result', language, default='Wynik tłumaczenia')}*\n\n{result}",
+        f"*{get_text('translation_result', language)}*\n\n{result}",
         parse_mode=ParseMode.MARKDOWN
     )
     
@@ -151,8 +147,6 @@ async def translate_document(update: Update, context: ContextTypes.DEFAULT_TYPE,
             f"{get_text('low_credits_warning', language)} {get_text('low_credits_message', language, credits=credits)}",
             parse_mode=ParseMode.MARKDOWN
         )
-
-
 
 async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text, target_lang="en"):
     """Tłumaczy podany tekst na określony język"""
@@ -167,7 +161,7 @@ async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     
     # Wyślij informację o rozpoczęciu tłumaczenia
     message = await update.message.reply_text(
-        get_text("translating_text", language, default="Translating text, please wait...")
+        get_text("translating_text", language)
     )
     
     # Wyślij informację o aktywności bota
@@ -189,14 +183,14 @@ async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     translation = await chat_completion(messages, model="gpt-3.5-turbo")
     
     # Odejmij kredyty
-    deduct_user_credits(user_id, credit_cost, f"Translation to {target_lang}")
+    deduct_user_credits(user_id, credit_cost, get_text("text_translation_operation", language, target_lang=target_lang, default=f"Tłumaczenie tekstu na język {target_lang}"))
     
     # Wyślij tłumaczenie
     source_lang_name = get_language_name(language)
     target_lang_name = get_language_name(target_lang)
     
     await message.edit_text(
-        f"*{get_text('translation_result', language, default='Translation result')}* ({source_lang_name} → {target_lang_name})\n\n{translation}",
+        f"*{get_text('translation_result', language)}* ({source_lang_name} → {target_lang_name})\n\n{translation}",
         parse_mode=ParseMode.MARKDOWN
     )
     

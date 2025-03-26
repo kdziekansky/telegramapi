@@ -57,6 +57,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Sprawdź też w bazie danych, czy użytkownik ma już ustawiony język
         has_language_in_db = False
         try:
+            from database.supabase_client import supabase
             response = supabase.table('users').select('language').eq('id', user_id).execute()
             if response.data and response.data[0].get('language'):
                 has_language_in_db = True
@@ -71,13 +72,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_language_selection(update, context)
         
     except Exception as e:
-        print(f"Błąd w funkcji start_command: {e}")
+        print(f"{get_text('start_command_error', 'pl', default='Błąd w funkcji start_command')}: {e}")
         import traceback
         traceback.print_exc()
         
         language = "pl"  # Domyślny język w przypadku błędu
         await update.message.reply_text(
-            get_text("initialization_error", language, default="Wystąpił błąd podczas inicjalizacji bota. Spróbuj ponownie później.")
+            get_text("initialization_error", language)
         )
 
 async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -103,7 +104,7 @@ async def show_language_selection(update: Update, context: ContextTypes.DEFAULT_
         banner_url = "https://i.imgur.com/OiPImmC.png?v-111"
         
         # Użyj neutralnego języka dla pierwszej wiadomości
-        language_message = f"Wybierz język / Choose language / Выберите язык:"
+        language_message = get_text("language_selection_neutral", "pl")
         
         # Wyślij zdjęcie z tekstem wyboru języka
         await update.message.reply_photo(
@@ -112,12 +113,12 @@ async def show_language_selection(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=reply_markup
         )
     except Exception as e:
-        print(f"Błąd w funkcji show_language_selection: {e}")
+        print(f"{get_text('language_selection_error', 'pl', default='Błąd w funkcji show_language_selection')}: {e}")
         import traceback
         traceback.print_exc()
         
         await update.message.reply_text(
-            "Wystąpił błąd podczas wyboru języka. Spróbuj ponownie później."
+            get_text("try_again_later", "pl", default="Wystąpił błąd podczas wyboru języka. Spróbuj ponownie później.")
         )
 
 async def handle_language_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -139,7 +140,7 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
             from database.supabase_client import update_user_language
             update_user_language(user_id, language)
         except Exception as e:
-            print(f"Błąd zapisywania języka: {e}")
+            print(f"{get_text('language_save_error', language, default='Błąd zapisywania języka')}: {e}")
         
         # Zapisz język w kontekście
         if 'user_data' not in context.chat_data:
@@ -185,9 +186,9 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
             from utils.menu import store_menu_state
             store_menu_state(context, user_id, 'main', query.message.message_id)
             
-            print(f"Menu główne wyświetlone poprawnie dla użytkownika {user_id}")
+            print(f"{get_text('main_menu_displayed', language, default='Menu główne wyświetlone poprawnie')} dla użytkownika {user_id}")
         except Exception as e:
-            print(f"Błąd przy aktualizacji wiadomości: {e}")
+            print(f"{get_text('message_update_error', language, default='Błąd przy aktualizacji wiadomości')}: {e}")
             # Jeśli nie możemy edytować, to spróbujmy wysłać nową wiadomość
             try:
                 message = await context.bot.send_message(
@@ -200,13 +201,13 @@ async def handle_language_selection(update: Update, context: ContextTypes.DEFAUL
                 from utils.menu import store_menu_state
                 store_menu_state(context, user_id, 'main', message.message_id)
                 
-                print(f"Wysłano nową wiadomość menu dla użytkownika {user_id}")
+                print(f"{get_text('sent_new_menu_message', language, default='Wysłano nową wiadomość menu')} dla użytkownika {user_id}")
             except Exception as e2:
-                print(f"Błąd przy wysyłaniu nowej wiadomości: {e2}")
+                print(f"{get_text('new_message_error', language, default='Błąd przy wysyłaniu nowej wiadomości')}: {e2}")
                 import traceback
                 traceback.print_exc()
     except Exception as e:
-        print(f"Błąd w funkcji handle_language_selection: {e}")
+        print(f"{get_text('language_selection_handler_error', 'pl', default='Błąd w funkcji handle_language_selection')}: {e}")
         import traceback
         traceback.print_exc()
 
@@ -272,9 +273,9 @@ async def show_welcome_message(update: Update, context: ContextTypes.DEFAULT_TYP
         
         return message
     except Exception as e:
-        print(f"Błąd w funkcji show_welcome_message: {e}")
+        print(f"{get_text('welcome_message_error', language or 'pl', default='Błąd w funkcji show_welcome_message')}: {e}")
         # Fallback do tekstu w przypadku błędu
         await update.message.reply_text(
-            "Wystąpił błąd podczas wyświetlania wiadomości powitalnej. Spróbuj ponownie później."
+            get_text("welcome_message_error_fallback", language or 'pl', default="Wystąpił błąd podczas wyświetlania wiadomości powitalnej. Spróbuj ponownie później.")
         )
         return None

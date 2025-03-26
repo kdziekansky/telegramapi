@@ -26,8 +26,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Sprawdź, czy użytkownik zainicjował czat
     if not is_chat_initialized(context, user_id):
         # Enhanced UI for chat initialization prompt
-        message = create_header("Rozpocznij nowy czat", "chat")
-        message += (
+        message = create_header(get_text("start_new_chat_title", language, default="Rozpocznij nowy czat"), "chat")
+        message += get_text("no_active_chat_message", language, default=
             "Aby rozpocząć używanie AI, najpierw utwórz nowy czat używając /newchat "
             "lub przycisku poniżej. Możesz również wybrać tryb czatu z menu."
         )
@@ -61,24 +61,33 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Sprawdź, czy użytkownik ma wystarczającą liczbę kredytów
     if not await check_user_credits(user_id, credit_cost):
-        warning_message = create_header("Niewystarczające kredyty", "warning")
-        warning_message += (
+        warning_message = create_header(get_text("insufficient_credits_title", language, default="Niewystarczające kredyty"), "warning")
+        warning_message += get_text("insufficient_credits_detailed", language, 
+            cost=credit_cost, credits=credits, credits_needed=credit_cost-credits, 
+            default=(
             f"Nie masz wystarczającej liczby kredytów, aby wysłać wiadomość.\n\n"
             f"▪️ Koszt operacji: *{credit_cost}* kredytów\n"
             f"▪️ Twój stan kredytów: *{credits}* kredytów\n\n"
             f"Potrzebujesz jeszcze *{credit_cost - credits}* kredytów.\n\n"
             f"Wybierz tańszy model (np. O3-mini lub GPT-3.5 Turbo za 1 kredyt/wiadomość)"
-        )
+        ))
         
         # Add credit recommendation if available
         from utils.credit_warnings import get_credit_recommendation
         recommendation = get_credit_recommendation(user_id, context)
         if recommendation:
             from utils.visual_styles import create_section
-            warning_message += "\n\n" + create_section("Rekomendowany pakiet", 
-                f"▪️ {recommendation['package_name']} - {recommendation['credits']} kredytów\n"
-                f"▪️ Cena: {recommendation['price']} PLN\n"
-                f"▪️ {recommendation['reason']}")
+            warning_message += "\n\n" + create_section(
+                get_text("recommended_package", language, default="Rekomendowany pakiet"), 
+                get_text("package_recommendation", language, 
+                         package_name=recommendation['package_name'], 
+                         credits=recommendation['credits'], 
+                         price=recommendation['price'],
+                         reason=recommendation['reason'],
+                         default=f"▪️ {recommendation['package_name']} - {recommendation['credits']} kredytów\n"
+                                f"▪️ Cena: {recommendation['price']} PLN\n"
+                                f"▪️ {recommendation['reason']}")
+            )
         
         keyboard = [
             [InlineKeyboardButton("🤖 " + get_text("change_model", language, default="Zmień model"), callback_data="settings_model")],
@@ -95,17 +104,17 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Check operation cost and show warning if needed
-    cost_warning = check_operation_cost(user_id, credit_cost, credits, "Wiadomość AI", context)
+    cost_warning = check_operation_cost(user_id, credit_cost, credits, get_text("ai_message", language, default="Wiadomość AI"), context)
     if cost_warning['require_confirmation'] and cost_warning['level'] in ['warning', 'critical']:
         # Show warning and ask for confirmation
-        warning_message = create_header("Potwierdzenie kosztu", "warning")
-        warning_message += cost_warning['message'] + "\n\nCzy chcesz kontynuować?"
+        warning_message = create_header(get_text("cost_confirmation", language, default="Potwierdzenie kosztu"), "warning")
+        warning_message += cost_warning['message'] + "\n\n" + get_text("continue_question", language, default="Czy chcesz kontynuować?")
         
         # Create confirmation buttons
         keyboard = [
             [
-                InlineKeyboardButton("✅ Tak, wyślij", callback_data=f"confirm_message"),
-                InlineKeyboardButton("❌ Anuluj", callback_data="cancel_operation")
+                InlineKeyboardButton("✅ " + get_text("yes_send", language, default="Tak, wyślij"), callback_data="confirm_message"),
+                InlineKeyboardButton("❌ " + get_text("cancel", language, default="Anuluj"), callback_data="cancel_operation")
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -133,7 +142,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Jeśli nie mamy ID, rzuć wyjątek aby przejść do tworzenia nowej konwersacji
         if conversation_id is None:
-            raise ValueError("Brak ID konwersacji")
+            raise ValueError(get_text("missing_conversation_id", language, default="Brak ID konwersacji"))
             
     except Exception as e:
         logger.error(f"Błąd przy pobieraniu konwersacji: {e}")
@@ -147,7 +156,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if isinstance(conversation, dict) and 'id' in conversation:
                     conversation_id = conversation['id']
                 else:
-                    raise ValueError("Nie można uzyskać ID konwersacji")
+                    raise ValueError(get_text("cannot_get_conversation_id", language, default="Nie można uzyskać ID konwersacji"))
                     
             logger.info(f"Utworzono nową konwersację po błędzie: {conversation_id}")
         except Exception as e2:

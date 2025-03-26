@@ -161,7 +161,7 @@ async def handle_onboarding_callback(update: Update, context: ContextTypes.DEFAU
             # Usuń poprzednią wiadomość
             await query.message.delete()
         except Exception as e:
-            print(f"Błąd przy wysyłaniu wiadomości końcowej onboardingu: {e}")
+            print(f"{get_text('onboarding_finish_message_error', language, default='Błąd przy wysyłaniu wiadomości końcowej onboardingu')}: {e}")
         return
     else:
         # Nieznany callback
@@ -214,7 +214,7 @@ async def handle_onboarding_callback(update: Update, context: ContextTypes.DEFAU
             parse_mode=ParseMode.MARKDOWN
         )
     except Exception as e:
-        print(f"Błąd przy aktualizacji wiadomości onboardingu: {e}")
+        print(f"{get_text('onboarding_message_update_error', language, default='Błąd przy aktualizacji wiadomości onboardingu')}: {e}")
         try:
             # Jeśli usunięcie i wysłanie nowej wiadomości się nie powiedzie, 
             # próbujemy zaktualizować obecną
@@ -223,4 +223,4 @@ async def handle_onboarding_callback(update: Update, context: ContextTypes.DEFAU
                 reply_markup=reply_markup
             )
         except Exception as e2:
-            print(f"Nie udało się zaktualizować wiadomości: {e2}")
+            print(f"{get_text('message_update_error', language, default='Nie udało się zaktualizować wiadomości')}: {e2}")

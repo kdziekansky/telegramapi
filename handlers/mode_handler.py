@@ -38,7 +38,7 @@ async def show_modes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard.append([
             InlineKeyboardButton(
-                f"{premium_marker}{mode_name} {cost_indicator} {mode_info['credit_cost']} kr.", 
+                f"{premium_marker}{mode_name} {cost_indicator} {mode_info['credit_cost']} {get_text('credits_abbr', language, default='kr.')}", 
                 callback_data=f"mode_{mode_id}"
             )
         ])
@@ -106,7 +106,7 @@ async def handle_mode_selection(update: Update, context: ContextTypes.DEFAULT_TY
     prompt_key = f"prompt_{mode_id}"
     mode_description = get_text(prompt_key, language, default=CHAT_MODES[mode_id]["prompt"])
     credit_cost = CHAT_MODES[mode_id]["credit_cost"]
-    model_name = AVAILABLE_MODELS.get(CHAT_MODES[mode_id].get("model", DEFAULT_MODEL), "Model standardowy")
+    model_name = AVAILABLE_MODELS.get(CHAT_MODES[mode_id].get("model", DEFAULT_MODEL), get_text("default_model", language, default="Model standardowy"))
     
     # Skróć opis, jeśli jest zbyt długi
     if len(mode_description) > 200:
@@ -115,16 +115,20 @@ async def handle_mode_selection(update: Update, context: ContextTypes.DEFAULT_TY
         short_description = mode_description
     
     # Przygotuj wiadomość potwierdzającą wybór
-    message_text = f"*Wybrany tryb: {mode_name}*\n\n"
-    message_text += f"*Opis:* {short_description}\n\n"
-    message_text += f"*Model:* {model_name}\n"
-    message_text += f"*Koszt:* {credit_cost} kredytów/wiadomość\n\n"
-    message_text += "Możesz teraz rozpocząć rozmowę. Powodzenia!"
+    message_text = get_text("mode_selected_message", language, 
+                           mode_name=mode_name, 
+                           credit_cost=credit_cost, 
+                           description=short_description,
+                           default=f"*Wybrany tryb: {mode_name}*\n\n"
+                                  f"*Opis:* {short_description}\n\n"
+                                  f"*Model:* {model_name}\n"
+                                  f"*Koszt:* {credit_cost} kredytów/wiadomość\n\n"
+                                  f"Możesz teraz rozpocząć rozmowę. Powodzenia!")
     
     # Dodaj przyciski
     keyboard = [
-        [InlineKeyboardButton("✏️ Rozpocznij rozmowę", callback_data="quick_new_chat")],
-        [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_chat_modes")]
+        [InlineKeyboardButton("✏️ " + get_text("start_conversation", language, default="Rozpocznij rozmowę"), callback_data="quick_new_chat")],
+        [InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_section_chat_modes")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
