@@ -12,7 +12,7 @@ from utils.translations import get_text
 from database.credits_client import (
     get_user_credits, add_user_credits, deduct_user_credits, 
     get_credit_packages, get_package_by_id, purchase_credits,
-    get_user_credit_stats
+    get_user_credit_stats, 
 )
 from utils.credit_analytics import (
     generate_credit_usage_chart, generate_usage_breakdown_chart, 
@@ -487,3 +487,63 @@ async def credit_analytics_command(update: Update, context: ContextTypes.DEFAULT
             photo=breakdown_chart,
             caption=f"📊 {get_text('usage_breakdown_chart', language, default=f'Rozkład wykorzystania kredytów z ostatnich {days} dni')}"
         )
+
+async def freecredits_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Dodaje 100 darmowych kredytów nowemu użytkownikowi (jednorazowo)
+    Użycie: /freecredits
+    """
+    user_id = update.effective_user.id
+    language = get_user_language(context, user_id)
+    
+    try:
+        # Sprawdź bezpośrednio w tabeli transakcji czy użytkownik już wykorzystał darmowe kredyty
+        from database.supabase_client import supabase
+        
+        response = supabase.table('credit_transactions').select('*').eq('user_id', user_id).eq('description', 'Free credits promotion').execute()
+        
+        if response.data and len(response.data) > 0:
+            # Użytkownik już wykorzystał promocję
+            message = create_header("Promocja wykorzystana", "info")
+            message += get_text("free_credits_already_used", language, default="Już wykorzystałeś promocję darmowych kredytów.")
+            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+            return
+        
+        # Pobierz aktualny stan kredytów
+        current_credits = get_user_credits(user_id)
+        
+        # Bezpośrednio zaktualizuj stan kredytów użytkownika
+        updated_credits = current_credits + 100
+        
+        # Aktualizuj rekord użytkownika
+        supabase.table('user_credits').update({
+            'credits_amount': updated_credits
+        }).eq('user_id', user_id).execute()
+        
+        # Dodaj wpis do historii transakcji
+        import datetime
+        now = datetime.datetime.now().isoformat()
+        
+        supabase.table('credit_transactions').insert({
+            'user_id': user_id,
+            'transaction_type': 'add',
+            'amount': 100,
+            'credits_before': current_credits,
+            'credits_after': updated_credits,
+            'description': 'Free credits promotion',
+            'created_at': now
+        }).execute()
+        
+        message = create_header("Darmowe kredyty dodane!", "success")
+        message += get_text("free_credits_added", language, credits=100, total=updated_credits,
+                         default=f"Dodano 100 darmowych kredytów do Twojego konta!\n\nAktualne saldo: {updated_credits} kredytów.")
+        
+        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+    
+    except Exception as e:
+        import logging
+        logging.error(f"Błąd przy dodawaniu darmowych kredytów: {e}")
+        
+        message = create_header("Błąd", "error")
+        message += get_text("free_credits_error", language, default="Wystąpił błąd podczas dodawania darmowych kredytów. Spróbuj ponownie później.")
+        await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
