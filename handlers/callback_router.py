@@ -33,8 +33,6 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # First, acknowledge the callback to remove waiting state
     await query.answer()
     
-    # Usunięto obsługę callback'ów związanych z tematami (theme)
-    
     # Menu section callbacks
     if query.data.startswith("menu_section_") or query.data == "menu_image_generate" or query.data == "menu_help":
         return await route_menu_section_callback(update, context)
@@ -107,7 +105,7 @@ async def route_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [[InlineKeyboardButton("⬅️ " + get_text("back_to_main_menu", language, default="Powrót do menu głównego"), callback_data="menu_back_main")]]
         await update_menu(
             query,
-            f"Nieznany przycisk. Spróbuj ponownie później.",
+            get_text("unknown_button", language, default="Nieznany przycisk. Spróbuj ponownie później."),
             InlineKeyboardMarkup(keyboard)
         )
         return True
@@ -191,11 +189,12 @@ async def route_model_selection_callback(update: Update, context: ContextTypes.D
         credit_cost = CREDIT_COSTS["message"].get(model_id, CREDIT_COSTS["message"]["default"])
         
         # Notify user about model change
-        model_name = AVAILABLE_MODELS.get(model_id, "Unknown model")
-        message = f"Wybrany model: *{model_name}*\nKoszt: *{credit_cost}* kredyt(ów) za wiadomość\n\nMożesz teraz zadać pytanie."
+        model_name = AVAILABLE_MODELS.get(model_id, get_text("unknown_model", language, default="Unknown model"))
+        message = get_text("model_selected", language, model_name=model_name, credit_cost=credit_cost, 
+                           default=f"Wybrany model: *{model_name}*\nKoszt: *{credit_cost}* kredyt(ów) za wiadomość\n\nMożesz teraz zadać pytanie.")
         
         # Return buttons
-        keyboard = [[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_section_settings")]]
+        keyboard = [[InlineKeyboardButton("⬅️ " + get_text("back", language, default="Powrót"), callback_data="menu_section_settings")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         try:
@@ -266,7 +265,7 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             conversation = await create_new_conversation(user_id)
             mark_chat_initialized(context, user_id)
             
-            await query.answer(get_text("new_chat_created", language))
+            await query.answer(get_text("new_chat_created", language, default="Utworzono nową rozmowę"))
             
             # Close the menu
             await query.message.delete()
@@ -360,7 +359,7 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
                 # Send message
                 await context.bot.send_message(
                     chat_id=query.message.chat_id,
-                    text=get_text("new_chat_created_message", language, default="Utworzono nową konwersację, ponieważ nie znaleziono aktywnej.")
+                    text=get_text("new_chat_fallback", language, default="Utworzono nową konwersację, ponieważ nie znaleziono aktywnej.")
                 )
             return True
         except Exception as e:
@@ -381,7 +380,11 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             from handlers.credit_handler import buy_command
             
             # Create fake update object
-            fake_update = type('obj', (object,), {'effective_user': query.from_user, 'message': query.message})
+            fake_update = type('obj', (object,), {
+                'effective_user': query.from_user,
+                'message': query.message,
+                'effective_chat': query.message.chat
+            })
             
             # Delete original message
             await query.message.delete()
@@ -392,7 +395,17 @@ async def route_quick_action_callback(update: Update, context: ContextTypes.DEFA
             logger.error(f"Error redirecting to credit purchase: {e}")
             import traceback
             traceback.print_exc()
-            return False
+            
+            try:
+                keyboard = [[InlineKeyboardButton("⬅️ " + get_text("main_menu", language, default="Menu główne"), callback_data="menu_back_main")]]
+                await context.bot.send_message(
+                    chat_id=query.message.chat_id,
+                    text=get_text("buy_command_error", language, default="Wystąpił błąd. Spróbuj użyć komendy /buy"),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except Exception as e2:
+                print(f"{get_text('message_display_error', language, default='Błąd przy wyświetlaniu komunikatu')}: {e2}")
+            return True
     
     return False
 
@@ -510,27 +523,27 @@ async def handle_help_callbacks(update: Update, context: ContextTypes.DEFAULT_TY
     
     if query.data == "help_commands":
         # Lista komend
-        commands_text = """
-*Lista dostępnych komend:*
+        commands_text = f"""
+*{get_text("commands_list_title", language, default="Lista dostępnych komend:")}*
 
-• /start - Rozpocznij korzystanie z bota
-• /credits - Sprawdź stan kredytów
-• /buy - Kup pakiet kredytów
-• /status - Sprawdź status konta
-• /newchat - Rozpocznij nową konwersację
-• /mode - Wybierz tryb czatu
-• /models - Wybierz model AI
-• /image [opis] - Wygeneruj obraz
-• /export - Eksportuj konwersację do PDF
-• /theme - Zarządzaj tematami konwersacji
-• /remind [czas] [treść] - Ustaw przypomnienie
-• /code [kod] - Aktywuj kod promocyjny
-• /creditstats - Analiza wykorzystania kredytów
-• /restart - Zrestartuj informacje o bocie
-• /menu - Pokaż menu główne
+• /start - {get_text("cmd_start", language, default="Rozpocznij korzystanie z bota")}
+• /credits - {get_text("cmd_credits", language, default="Sprawdź stan kredytów")}
+• /buy - {get_text("cmd_buy", language, default="Kup pakiet kredytów")}
+• /status - {get_text("cmd_status", language, default="Sprawdź status konta")}
+• /newchat - {get_text("cmd_newchat", language, default="Rozpocznij nową konwersację")}
+• /mode - {get_text("cmd_mode", language, default="Wybierz tryb czatu")}
+• /models - {get_text("cmd_models", language, default="Wybierz model AI")}
+• /image [opis] - {get_text("cmd_image", language, default="Wygeneruj obraz")}
+• /export - {get_text("cmd_export", language, default="Eksportuj konwersację do PDF")}
+• /theme - {get_text("cmd_theme", language, default="Zarządzaj tematami konwersacji")}
+• /remind [czas] [treść] - {get_text("cmd_remind", language, default="Ustaw przypomnienie")}
+• /code [kod] - {get_text("cmd_code", language, default="Aktywuj kod promocyjny")}
+• /creditstats - {get_text("cmd_creditstats", language, default="Analiza wykorzystania kredytów")}
+• /restart - {get_text("cmd_restart", language, default="Zrestartuj informacje o bocie")}
+• /menu - {get_text("cmd_menu", language, default="Pokaż menu główne")}
         """
         
-        keyboard = [[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_help")]]
+        keyboard = [[InlineKeyboardButton("⬅️ " + get_text("back", language, default="Powrót"), callback_data="menu_help")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update_menu(query, commands_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
@@ -541,25 +554,25 @@ async def handle_help_callbacks(update: Update, context: ContextTypes.DEFAULT_TY
         credits = get_user_credits(user_id)
         
         credits_text = f"""
-*Informacje o systemie kredytów:*
+*{get_text("credits_info_title", language, default="Informacje o systemie kredytów:")}*
 
-• Aktualna liczba kredytów: *{credits}*
-• Kredyty są używane do wszystkich operacji w bocie
+• {get_text("current_credits", language, default="Aktualna liczba kredytów")}: *{credits}*
+• {get_text("credits_usage_info", language, default="Kredyty są używane do wszystkich operacji w bocie")}
 
-*Koszty operacji:*
-• Wiadomość standardowa (GPT-3.5): 1 kredyt
-• Wiadomość premium (GPT-4o): 3 kredyty
-• Wiadomość ekspercka (GPT-4): 5 kredytów
-• Generowanie obrazu: 10-15 kredytów
-• Analiza dokumentu: 5 kredytów
-• Analiza zdjęcia: 8 kredytów
+*{get_text("operation_costs", language, default="Koszty operacji:")}*
+• {get_text("standard_message", language, default="Wiadomość standardowa")} (GPT-3.5): 1 {get_text("credit", language, default="kredyt")}
+• {get_text("premium_message", language, default="Wiadomość premium")} (GPT-4o): 3 {get_text("credits", language, default="kredyty")}
+• {get_text("expert_message", language, default="Wiadomość ekspercka")} (GPT-4): 5 {get_text("credits", language, default="kredytów")}
+• {get_text("dalle_image", language, default="Generowanie obrazu DALL-E")}: 10-15 {get_text("credits", language, default="kredytów")}
+• {get_text("document_analysis", language, default="Analiza dokumentu")}: 5 {get_text("credits", language, default="kredytów")}
+• {get_text("photo_analysis", language, default="Analiza zdjęcia")}: 8 {get_text("credits", language, default="kredytów")}
 
-Użyj /buy aby dokupić kredyty lub /creditstats aby sprawdzić statystyki wykorzystania.
+{get_text("buy_more_info", language, default="Użyj /buy aby dokupić kredyty lub /creditstats aby sprawdzić statystyki wykorzystania.")}
         """
         
         keyboard = [
-            [InlineKeyboardButton("💳 Kup kredyty", callback_data="menu_credits_buy")],
-            [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_help")]
+            [InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language, default="Kup kredyty"), callback_data="menu_credits_buy")],
+            [InlineKeyboardButton("⬅️ " + get_text("back", language, default="Powrót"), callback_data="menu_help")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -569,20 +582,20 @@ Użyj /buy aby dokupić kredyty lub /creditstats aby sprawdzić statystyki wykor
     elif query.data == "help_contact":
         # Informacje kontaktowe
         contact_text = f"""
-*Kontakt i wsparcie:*
+*{get_text("contact_support_title", language, default="Kontakt i wsparcie:")}*
 
-• Email: support@{BOT_NAME.lower()}.ai
-• Telegram: @{BOT_NAME.lower()}_support
-• Czas odpowiedzi: do 24h w dni robocze
+• {get_text("email", language, default="Email")}: support@{BOT_NAME.lower()}.ai
+• {get_text("telegram", language, default="Telegram")}: @{BOT_NAME.lower()}_support
+• {get_text("response_time", language, default="Czas odpowiedzi")}: {get_text("response_time_info", language, default="do 24h w dni robocze")}
 
-*Zgłaszanie błędów:*
-Jeśli napotkasz problem, opisz dokładnie co się stało i w jakich okolicznościach.
+*{get_text("report_bugs", language, default="Zgłaszanie błędów:")}*
+{get_text("bug_report_instructions", language, default="Jeśli napotkasz problem, opisz dokładnie co się stało i w jakich okolicznościach.")}
 
-*Sugestie:*
-Chętnie przyjmujemy pomysły na nowe funkcje!
+*{get_text("suggestions", language, default="Sugestie:")}*
+{get_text("suggestions_welcome", language, default="Chętnie przyjmujemy pomysły na nowe funkcje!")}
         """
         
-        keyboard = [[InlineKeyboardButton("⬅️ Powrót", callback_data="menu_help")]]
+        keyboard = [[InlineKeyboardButton("⬅️ " + get_text("back", language, default="Powrót"), callback_data="menu_help")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update_menu(query, contact_text, reply_markup, parse_mode=ParseMode.MARKDOWN)

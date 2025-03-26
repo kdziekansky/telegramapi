@@ -263,7 +263,7 @@ async def handle_back_to_main(update, context):
         # Zamiast usuwać wiadomość, sprawdzamy czy to wiadomość z obrazkiem
         if hasattr(query.message, 'photo') and query.message.photo:
             # Dla wiadomości z obrazkiem - aktualizujemy podpis i przyciski
-            await query.message.edit_caption(
+            await query.edit_message_caption(
                 caption=welcome_text,
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.MARKDOWN
@@ -287,7 +287,12 @@ async def handle_back_to_main(update, context):
         
         # Alternatywna metoda - próba standardowej aktualizacji tekstu
         try:
-            result = await update_menu(query, welcome_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+            result = await update_menu(
+                query, 
+                welcome_text, 
+                reply_markup, 
+                parse_mode=ParseMode.MARKDOWN
+            )
             store_menu_state(context, user_id, 'main')
             return result
         except Exception as e2:
