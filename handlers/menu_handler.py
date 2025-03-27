@@ -96,13 +96,13 @@ async def handle_credits_section(update, context, navigation_path=""):
     credits = get_user_credits(user_id)
     
     message_text = f"*{navigation_path or get_navigation_path('credits', language)}*\n\n"
-    message_text += f"*Stan kredytów*\n\nDostępne kredyty: *{credits}*\n\n*Koszty operacji:*\n"
-    message_text += f"▪️ Wiadomość standardowa (GPT-3.5): 1 kredyt\n"
-    message_text += f"▪️ Wiadomość premium (GPT-4o): 3 kredyty\n"
-    message_text += f"▪️ Wiadomość ekspercka (GPT-4): 5 kredytów\n"
-    message_text += f"▪️ Generowanie obrazu: 10-15 kredytów\n"
-    message_text += f"▪️ Analiza dokumentu: 5 kredytów\n"
-    message_text += f"▪️ Analiza zdjęcia: 8 kredytów\n\n"
+    message_text += f"*{get_text('credit_status', language)}*\n\n{get_text('available_credits', language)}: *{credits}*\n\n*{get_text('operation_costs', language)}:*\n"
+    message_text += f"▪️ {get_text('standard_message', language)} (GPT-3.5): 1 {get_text('credit', language)}\n"
+    message_text += f"▪️ {get_text('premium_message', language)} (GPT-4o): 3 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('expert_message', language)} (GPT-4): 5 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('dalle_image', language)}: 10-15 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('document_analysis', language)}: 5 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('photo_analysis', language)}: 8 {get_text('credits', language)}\n\n"
     
     buttons = [
         [InlineKeyboardButton("💳 Kup kredyty", callback_data="menu_credits_buy")],
@@ -141,6 +141,44 @@ async def handle_history_section(update, context, navigation_path=""):
         "history_options", buttons
     )
 
+async def handle_credits_section(update, context, navigation_path=""):
+    """Credits section handler"""
+    query = update.callback_query
+    user_id = query.from_user.id
+    language = get_user_language(context, user_id)
+    
+    # Usuwamy await
+    credits = get_user_credits(user_id)
+    
+    message_text = f"*{navigation_path or get_navigation_path('credits', language)}*\n\n"
+    message_text += f"*{get_text('credit_status', language)}*\n\n{get_text('available_credits', language)}: *{credits}*\n\n*{get_text('operation_costs', language)}:*\n"
+    message_text += f"▪️ {get_text('standard_message', language)} (GPT-3.5): 1 {get_text('credit', language)}\n"
+    message_text += f"▪️ {get_text('premium_message', language)} (GPT-4o): 3 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('expert_message', language)} (GPT-4): 5 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('dalle_image', language)}: 10-15 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('document_analysis', language)}: 5 {get_text('credits', language)}\n"
+    message_text += f"▪️ {get_text('photo_analysis', language)}: 8 {get_text('credits', language)}\n\n"
+    
+    buttons = [
+        [InlineKeyboardButton("💳 " + get_text("buy_credits_btn", language), callback_data="menu_credits_buy")],
+        [
+            InlineKeyboardButton("💰 " + get_text("payment_methods", language), callback_data="payment_command"),
+            InlineKeyboardButton("🔄 " + get_text("subscription_manage", language), callback_data="subscription_command")
+        ],
+        [InlineKeyboardButton("📜 " + get_text("transaction_history", language), callback_data="transactions_command")],
+        # Pasek szybkiego dostępu
+        [
+            InlineKeyboardButton("🆕 " + get_text("new_chat", language), callback_data="quick_new_chat"),
+            InlineKeyboardButton("💬 " + get_text("last_chat", language), callback_data="quick_last_chat")
+        ],
+        [InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")]
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(buttons)
+    result = await update_menu(query, message_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
+    store_menu_state(context, user_id, 'credits')
+    return result
+
 async def handle_settings_section(update, context, navigation_path=""):
     """Settings section handler"""
     query = update.callback_query
@@ -161,9 +199,9 @@ async def handle_settings_section(update, context, navigation_path=""):
     
     # Dodaj przyciski szybkiego dostępu
     buttons.append([
-        InlineKeyboardButton("🆕 " + get_text("new_chat", language, default="Nowa rozmowa"), callback_data="quick_new_chat"),
-        InlineKeyboardButton("💬 " + get_text("last_chat", language, default="Ostatnia rozmowa"), callback_data="quick_last_chat"),
-        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language, default="Kup kredyty"), callback_data="quick_buy_credits")
+        InlineKeyboardButton("🆕 " + get_text("new_chat", language), callback_data="quick_new_chat"),
+        InlineKeyboardButton("💬 " + get_text("last_chat", language), callback_data="quick_last_chat"),
+        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language), callback_data="quick_buy_credits")
     ])
     
     # Dodaj przycisk powrotu
@@ -171,32 +209,10 @@ async def handle_settings_section(update, context, navigation_path=""):
     
     reply_markup = InlineKeyboardMarkup(buttons)
     
-    try:
-        # Usuń poprzednią wiadomość
-        await query.message.delete()
-        
-        # Wyślij nową wiadomość ze zdjęciem
-        message = await context.bot.send_photo(
-            chat_id=query.message.chat_id,
-            photo=banner_url,
-            caption=message_text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN
-        )
-        
-        # Zapisz stan menu
-        store_menu_state(context, user_id, 'settings', message.message_id)
-        return True
-    except Exception as e:
-        logger.error(f"Błąd przy wyświetlaniu menu ustawień: {e}")
-        # Alternatywna metoda, jeśli wysłanie zdjęcia się nie powiedzie
-        try:
-            result = await update_menu(query, message_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
-            store_menu_state(context, user_id, 'settings')
-            return result
-        except Exception as e2:
-            logger.error(f"Drugi błąd przy wyświetlaniu menu ustawień: {e2}")
-            return False
+    return await _create_section_menu(
+        query, context, 'settings', 
+        "settings_options", buttons
+    )
 
 async def handle_image_section(update, context, navigation_path=""):
     """Image generation section handler"""

@@ -71,13 +71,23 @@ async def onboarding_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     keyboard.append(row)
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    # Wysyłamy zdjęcie z podpisem dla pierwszego kroku
-    await update.message.reply_photo(
-        photo=get_onboarding_image_url(step_name),
-        caption=text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
-    )
+    try:
+        # Wysyłamy zdjęcie z podpisem dla pierwszego kroku
+        await update.message.reply_photo(
+            photo=get_onboarding_image_url(step_name),
+            caption=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN
+        )
+    except Exception as e:
+        # W przypadku błędu wysyłamy bez formatowania Markdown
+        # Usuwamy znaki specjalne Markdown, które mogą powodować problemy
+        clean_text = text.replace("*", "").replace("_", "").replace("`", "").replace("[", "").replace("]", "")
+        await update.message.reply_photo(
+            photo=get_onboarding_image_url(step_name),
+            caption=clean_text,
+            reply_markup=reply_markup
+        )
 
 async def handle_onboarding_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
