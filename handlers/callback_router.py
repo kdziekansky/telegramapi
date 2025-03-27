@@ -190,8 +190,7 @@ async def route_model_selection_callback(update: Update, context: ContextTypes.D
         
         # Notify user about model change
         model_name = AVAILABLE_MODELS.get(model_id, get_text("unknown_model", language, default="Unknown model"))
-        message = get_text("model_selected", language, model_name=model_name, credit_cost=credit_cost, 
-                           default=f"Wybrany model: *{model_name}*\nKoszt: *{credit_cost}* kredyt(ów) za wiadomość\n\nMożesz teraz zadać pytanie.")
+        message = f"Selected model: *{model_name}*\Cost: *{credit_cost}* credits per message\n\nYou can start chatting now."
         
         # Return buttons
         keyboard = [[InlineKeyboardButton("⬅️ " + get_text("back", language, default="Powrót"), callback_data="menu_section_settings")]]

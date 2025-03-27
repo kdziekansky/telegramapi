@@ -4,6 +4,7 @@ from typing import Dict, List, AsyncGenerator
 from api.openai_client import OpenAIClient
 from api.anthropic_client import AnthropicClient
 from api.supabase_client import SupabaseClient
+from services.document_service import DocumentService
 from config import OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_MODEL, SUPABASE_URL, SUPABASE_KEY
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,9 @@ class APIService:
         self.openai = OpenAIClient(api_key=OPENAI_API_KEY)
         self.anthropic = AnthropicClient(api_key=ANTHROPIC_API_KEY)
         self.supabase = SupabaseClient(url=SUPABASE_URL, key=SUPABASE_KEY)
+        
+        # Inicjalizacja serwisu dokumentów
+        self.document_service = DocumentService(self.openai, self.anthropic)
         
         # Zaktualizowana lista modeli Claude
         self.claude_models = [

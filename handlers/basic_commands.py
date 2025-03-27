@@ -6,7 +6,8 @@ from utils.translations import get_text
 from utils.user_utils import get_user_language, mark_chat_initialized
 from database.supabase_client import create_new_conversation, get_active_conversation, get_message_status
 from database.credits_client import get_user_credits
-from utils.menu import get_navigation_path
+from utils.menu import store_menu_state, get_navigation_path
+
 
 
 async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
