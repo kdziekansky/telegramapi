@@ -683,6 +683,8 @@ translations = {
         "loading_category": "Ładowanie",
         "tip_category": "Porada",
         "operation": "Operacja",
+        "one_time_packages": "Pakiety jednorazowe",
+        "subscription": "Subskrypcja",
     },
     
     "en": {
@@ -1365,6 +1367,8 @@ translations = {
         "loading_category": "Loading",
         "tip_category": "Tip",
         "operation": "Operation",
+        "one_time_packages": "One-time packages",
+        "subscription": "Subscription",
     },
     
     "ru": {
@@ -2049,6 +2053,8 @@ translations = {
         "loading_category": "Загрузка",
         "tip_category": "Совет",
         "operation": "Операция",
+        "one_time_packages": "Разовые пакеты",
+        "subscription": "Подписка",
     }
 }
 

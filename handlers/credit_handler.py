@@ -103,8 +103,8 @@ async def buy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [
-            InlineKeyboardButton("💳 " + get_text("one_time_packages", language, default="Pakiety jednorazowe"), callback_data="payment_method_stripe"),
-            InlineKeyboardButton("🔄 " + get_text("subscription", language, default="Subskrypcja"), callback_data="payment_method_stripe_subscription")
+            InlineKeyboardButton("💳 " + get_text("one_time_packages", language, default="One-time packages"), callback_data="payment_method_stripe"),
+            InlineKeyboardButton("🔄 " + get_text("subscription", language, default="Subscription"), callback_data="payment_method_stripe_subscription")
         ],
         [
             InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")

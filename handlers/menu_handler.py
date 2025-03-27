@@ -87,42 +87,24 @@ async def handle_chat_modes_section(update, context, navigation_path=""):
     )
 
 async def handle_credits_section(update, context, navigation_path=""):
-    """Credits section handler"""
     query = update.callback_query
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
-    # Usuwamy await
-    credits = get_user_credits(user_id)
-    
-    message_text = f"*{navigation_path or get_navigation_path('credits', language)}*\n\n"
-    message_text += f"*{get_text('credit_status', language)}*\n\n{get_text('available_credits', language)}: *{credits}*\n\n*{get_text('operation_costs', language)}:*\n"
-    message_text += f"▪️ {get_text('standard_message', language)} (GPT-3.5): 1 {get_text('credit', language)}\n"
-    message_text += f"▪️ {get_text('premium_message', language)} (GPT-4o): 3 {get_text('credits', language)}\n"
-    message_text += f"▪️ {get_text('expert_message', language)} (GPT-4): 5 {get_text('credits', language)}\n"
-    message_text += f"▪️ {get_text('dalle_image', language)}: 10-15 {get_text('credits', language)}\n"
-    message_text += f"▪️ {get_text('document_analysis', language)}: 5 {get_text('credits', language)}\n"
-    message_text += f"▪️ {get_text('photo_analysis', language)}: 8 {get_text('credits', language)}\n\n"
-    
+    # Tylko przyciski specyficzne dla kredytów
     buttons = [
-        [InlineKeyboardButton("💳 Kup kredyty", callback_data="menu_credits_buy")],
+        [InlineKeyboardButton(get_text("buy_credits_btn", language), callback_data="menu_credits_buy")],
         [
-            InlineKeyboardButton("💰 Metody płatności", callback_data="payment_command"),
-            InlineKeyboardButton("🔄 Subskrypcje", callback_data="subscription_command")
+            InlineKeyboardButton(get_text("payment_methods", language), callback_data="payment_command"),
+            InlineKeyboardButton(get_text("subscription_manage", language), callback_data="subscription_command")
         ],
-        [InlineKeyboardButton("📜 Historia transakcji", callback_data="transactions_command")],
-        # Quick access buttons
-        [
-            InlineKeyboardButton("🆕 " + get_text("new_chat", language), callback_data="quick_new_chat"),
-            InlineKeyboardButton("💬 " + get_text("last_chat", language), callback_data="quick_last_chat")
-        ],
-        [InlineKeyboardButton("⬅️ Powrót", callback_data="menu_back_main")]
+        [InlineKeyboardButton(get_text("transaction_history", language), callback_data="transactions_command")]
     ]
     
-    reply_markup = InlineKeyboardMarkup(buttons)
-    result = await update_menu(query, message_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
-    store_menu_state(context, user_id, 'credits')
-    return result
+    return await _create_section_menu(
+        query, context, 'credits', 
+        "credit_status", buttons
+    )
 
 async def handle_history_section(update, context, navigation_path=""):
     """History section handler"""
@@ -185,67 +167,31 @@ async def handle_settings_section(update, context, navigation_path=""):
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
-    # Link do zdjęcia bannera
-    banner_url = "https://i.imgur.com/YPubLDE.png?v-1123"
-    
-    nav_path = get_navigation_path('settings', language)
-    message_text = f"*{nav_path}*\n\n{get_text('settings_options', language)}"
-    
+    # Przyciski specyficzne dla sekcji ustawień
     buttons = [
         [InlineKeyboardButton(get_text("settings_model", language), callback_data="settings_model")],
         [InlineKeyboardButton(get_text("settings_language", language), callback_data="settings_language")],
         [InlineKeyboardButton(get_text("settings_name", language), callback_data="settings_name")]
     ]
     
-    # Dodaj przyciski szybkiego dostępu
-    buttons.append([
-        InlineKeyboardButton("🆕 " + get_text("new_chat", language), callback_data="quick_new_chat"),
-        InlineKeyboardButton("💬 " + get_text("last_chat", language), callback_data="quick_last_chat"),
-        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language), callback_data="quick_buy_credits")
-    ])
-    
-    # Dodaj przycisk powrotu
-    buttons.append([InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")])
-    
-    reply_markup = InlineKeyboardMarkup(buttons)
-    
+    # _create_section_menu automatycznie doda przyciski szybkiego dostępu i powrotu
     return await _create_section_menu(
         query, context, 'settings', 
         "settings_options", buttons
     )
 
 async def handle_image_section(update, context, navigation_path=""):
-    """Image generation section handler"""
     query = update.callback_query
     user_id = query.from_user.id
     language = get_user_language(context, user_id)
     
-    text_key = "image_usage"
-    message_text = f"*{navigation_path or get_navigation_path('image', language)}*\n\n"
-    message_text += get_text(text_key, language, default="Aby wygenerować obraz, użyj komendy /image [opis obrazu]")
+    # Brak specyficznych przycisków dla tej sekcji
+    buttons = []
     
-    # Add examples and tips
-    message_text += "\n\n*Przykłady:*\n"
-    message_text += "▪️ /image zachód słońca nad górami z jeziorem\n"
-    message_text += "▪️ /image portret kobiety w stylu renesansowym\n"
-    message_text += "▪️ /image futurystyczne miasto nocą\n\n"
-    message_text += "*Wskazówki:*\n"
-    message_text += "▪️ Im bardziej szczegółowy opis, tym lepszy efekt\n"
-    message_text += "▪️ Możesz określić styl artystyczny (np. olejny, akwarela)\n"
-    message_text += "▪️ Dodaj informacje o oświetleniu, kolorach i kompozycji"
-    
-    buttons = [[
-        InlineKeyboardButton("🆕 " + get_text("new_chat", language), callback_data="quick_new_chat"),
-        InlineKeyboardButton("💬 " + get_text("last_chat", language), callback_data="quick_last_chat"),
-        InlineKeyboardButton("💸 " + get_text("buy_credits_btn", language), callback_data="quick_buy_credits")
-    ], [
-        InlineKeyboardButton("⬅️ " + get_text("back", language), callback_data="menu_back_main")
-    ]]
-    
-    reply_markup = InlineKeyboardMarkup(buttons)
-    result = await update_menu(query, message_text, reply_markup, parse_mode=ParseMode.MARKDOWN)
-    store_menu_state(context, user_id, 'image')
-    return result
+    return await _create_section_menu(
+        query, context, 'image', 
+        "image_usage", buttons
+    )
 
 async def handle_back_to_main(update, context):
     """Back to main menu handler"""
